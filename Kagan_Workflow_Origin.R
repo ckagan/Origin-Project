@@ -1,21 +1,72 @@
 ##Load lumi
 library(lumi)
 setwd("C:/Users/Courtney/Dropbox/LCL-iPSC/Origin/Array")
+
 ##Create object with name of data file:
 data = c('YGilad-CK-Aug23-14-ProbeLevelData-NotNormalized-NoBGSubtracted-FinalReport.txt')
 
 ##Extract raw data from lumi file and preparing for removing bad probes:
 data.lumi = lumiR.batch(data, lib.mapping=NULL, convertNuID=F,annotationColumn=c('ACCESSION', 'SYMBOL', 'PROBE_SEQUENCE', 'PROBE_START', 'CHROMOSOME', 'PROBE_CHR_ORIENTATION', 'PROBE_COORDINATES', 'DEFINITION','PROBE_ID'))
 
+#Get QC Data
+summary(data.lumi, 'QC')
+
+#Past output into excel and create a file called lumiQC
+#Sample  mean standard.deviation detection.rate.0.01. distance.to.sample.mean
+#1    YG1 7.229              1.211               0.3735                   42.24
+#2    YG2 7.342              1.257               0.3543                   46.28
+
+#Look at QC based on cell type
+qcdata = read.table('lumiQC.txt', header=T, as.is=T, sep='\t')
+samplenames = read.table('covar.txt', header=T, sep ='\t')
+
+boxplot(qcdata$mean~samplenames$Indiv, main = 'Mean Probe Intensity by Individual')
+boxplot(qcdata$mean~samplenames$Batch, main = 'Mean Probe Intensity by Array')
+boxplot(qcdata$mean~samplenames$MEF, main = 'Mean Probe Intensity by MEF Batch')
+boxplot(qcdata$mean~samplenames$Type, main = 'Mean Probe Intensity by Cell Type')
 
 ### NORMALIZATION: log2 stabilized and quantile normalization ###
 data.norm.all <- lumiExpresso(data.lumi, bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
-#Take only the probes that have a detection p-value<.05 in at least one individual
-detect_quant.all= rowSums(data.norm.all@assayData$detection<0.05)
-norm_quant.all <- data.norm.all@assayData$exprs
-detect.ind.all <- which(detect_quant.all > 2)
 
+summary(data.norm.all, 'QC')
 
+#Summary of Samples:
+#  YG1     YG2     YG3     YG4    YG5     YG6     YG7      YG8     YG9     YG10     YG11    YG12
+#mean                     7.2660  7.2660  7.2660   7.266  7.266  7.2660  7.2660   7.2660  7.2660   7.2660   7.2660  7.2660
+#standard deviation       1.2430  1.2430  1.2430   1.243  1.243  1.2430  1.2430   1.2430  1.2430   1.2430   1.2430  1.2430
+#detection rate(0.01)     0.3735  0.3543  0.3672   0.340  0.357  0.3681  0.3657   0.3482  0.3732   0.3743   0.3535  0.3839
+#distance to sample mean 43.1100 43.2500 44.4300 108.900 44.130 51.5700 43.9500 111.1000 42.8200 114.2000 108.1000 42.9800
+#YG13     YG14    YG15     YG16     YG17    YG18    YG19   YG20    YG21    YG22    YG23    YG24
+#mean                      7.2660   7.2660  7.2660   7.2660   7.2660  7.2660  7.2660  7.266  7.2660  7.2660  7.2660  7.2660
+#standard deviation        1.2430   1.2430  1.2430   1.2430   1.2430  1.2430  1.2430  1.243  1.2430  1.2430  1.2430  1.2430
+#detection rate(0.01)      0.3619   0.3296  0.3807   0.3292   0.3382  0.3848  0.3582  0.363  0.3656  0.3587  0.3666  0.3534
+#distance to sample mean 112.9000 107.9000 42.4700 109.7000 111.8000 42.7200 45.2900 48.500 42.9400 42.6400 45.7400 44.4300
+
+#Subset data by cell type and look for detection in at least 4 indivduals per subset
+detection = data.norm.all@assayData$detection
+colnames(detection) = samplenames$Name
+type = samplenames$Type
+selected = c('1')
+iPSCdetect = detection[,type %in% selected]
+selected = c('2')
+LCLdetect = detection[,type %in% selected]
+selected = c('3')
+Fibdetect = detection[,type %in% selected]
+
+#Count the number of probes that have a detection p-value<.05
+iPSCdetected = rowSums(iPSCdetect<0.05)
+LCLdetected = rowSums(LCLdetect<0.05)
+Fibdetected = rowSums(Fibdetect<0.05)
+
+#Here is where I select the number of indiv that need to have the probe expressed (at least in 4 people), iPSC =22,848, LCL = 15,759, Fib = 16,699
+detect.iPSC <- which(iPSCdetected > 3)
+detect.LCL <- which(LCLdetected > 3)
+detect.Fib <- which(Fibdetected > 3)
+
+union = c(detect.Fib, detect.LCL, detect.iPSC)
+unionunique= unique(union)
+detect.ind.all = sort.int(unionunique)
+#24,480 probes detected 
 
 ##Look at plots of array data (boxplot, density, etc) :
 plot(data.lumi, what='boxplot')
@@ -26,12 +77,13 @@ plot(data.norm.all, what='density')
 ##Check that replicates are most related
 plot(data.norm.all, what='sampleRelation')
 
+norm_quant.all <- data.norm.all@assayData$exprs
 ###Find the column that is lumi_ID in feature data usually this column
 head(data.norm.all@featureData[[5]])
 ##[1] "ILMN_1343291" "ILMN_1343295" "ILMN_1651199" "ILMN_1651209" "ILMN_1651210" "ILMN_1651221"
 ###Convert expr_quant rownames to
 rownames(norm_quant.all)=data.norm.all@featureData[[5]]
-#With this threshold 26,953 probes out of 47,315 are expressed
+#With this threshold 24,480 probes out of 47,315 are expressed
 expr_quant.all <- norm_quant.all[detect.ind.all,]
 
 
@@ -42,14 +94,14 @@ probes = goodprobes$probeID
 probes = as.character(goodprobes$probeID)
 expr_quant.all.clean = expr_quant.all[rownames(expr_quant.all) %in% probes, ]
 # dim(expr_quant.all.clean)  
-# 17,867 probes of the original 26,953 "good" probes are in this data set
+# 16,593 probes of the original 26,953 "good" probes are in this data set
 expr_quant.all= expr_quant.all.clean
 remove(expr_quant.all.clean)
 
 ##Load in Covariates
 #Converted chip and batch to a factor so they are categorical 
-samplenames = read.table('sample_names_corrected.txt', header=F, sep ="")
-colnames(expr_quant.all) = samplenames[,1]
+
+colnames(expr_quant.all) = samplenames$Name
 
 cond = samplenames[,2]
 spec = samplenames[,4]
