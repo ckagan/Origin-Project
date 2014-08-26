@@ -1,6 +1,6 @@
 ##Load lumi
 library(lumi)
-
+setwd("C:/Users/Courtney/Dropbox/LCL-iPSC/Origin/Array")
 ##Create object with name of data file:
 data = c('YGilad-CK-Aug23-14-ProbeLevelData-NotNormalized-NoBGSubtracted-FinalReport.txt')
 
