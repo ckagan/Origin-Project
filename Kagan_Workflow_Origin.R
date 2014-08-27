@@ -86,49 +86,200 @@ rownames(norm_quant.all)=data.norm.all@featureData[[5]]
 #With this threshold 24,480 probes out of 47,315 are expressed
 expr_quant.all <- norm_quant.all[detect.ind.all,]
 
-
 ###Subset expression by Darren good probes
 goodprobes= read.table('HT-12v4_Probes_inhg19EnsemblGenes_NoCEUHapMapSNPs_Stranded.txt', header=T)
 probes = goodprobes$probeID
 ## Convert from factor to character
 probes = as.character(goodprobes$probeID)
 expr_quant.all.clean = expr_quant.all[rownames(expr_quant.all) %in% probes, ]
-# dim(expr_quant.all.clean)  
+dim(expr_quant.all.clean)  
 # 16,593 probes of the original 26,953 "good" probes are in this data set
 expr_quant.all= expr_quant.all.clean
 remove(expr_quant.all.clean)
+probelist = rownames(expr_quant.all)
 
 ##Load in Covariates
-#Converted chip and batch to a factor so they are categorical 
-
+#Converted some factors so they are categorical 
+samplenames = read.table('covar.txt', header=T, sep ='\t')
 colnames(expr_quant.all) = samplenames$Name
 
-cond = samplenames[,2]
-spec = samplenames[,4]
-tech = samplenames[,6]
-sex =  samplenames[,8]
-age = samplenames[,9]
-pluri =  samplenames[,10]
-novel = samplenames[,11]
+batch = samplenames$Batch
+mef = samplenames$MEF
+type = samplenames$Type
+sex =  samplenames$Sex
+indiv = samplenames$Indiv
+pluri =  samplenames$Pluri
+novel = samplenames$Novelty
+der = samplenames$Deriv
+
+covars = list(mef, batch, type,sex,indiv,pluri,novel,der)
+
 #Converted categorical covariates to a factor so they are levels 
-cond.f = as.factor(cond)
-spec.f = as.factor(spec)
-tech.f = as.factor(tech)
+batch.f = as.factor(batch)
+mef.f = as.factor(mef)
+type.f = as.factor(type)
 sex.f = as.factor(sex)
+indiv.f = as.factor(indiv)
+
 ##To look for correlations between covariates get the R^2 of the Pearson correlation
-cor(age, pluri)^2
-cor(age, novel)^2
-cor(sex, pluri)^2
-cor(sex, novel)^2
-cor(spec, pluri)^2
-cor(spec, novel)^2
-cor(tech, pluri)^2
-cor(tech, novel)^2
+cor(novel, pluri)
+
 #Converted numerical covariates to a numeric so they are continuous
-age.num = as.numeric(age)
 pluri.num =as.numeric(pluri)
 novel.num = as.numeric(novel)
-rm(cond, spec, tech, sex, age, pluri, novel)
+
+#rm(cond, spec, tech, sex, age, pluri, novel)
+
+#To use Nick's dendogram script
+#First generate the chr file
+probeinfolist = cbind(goodprobes$chr, as.character(goodprobes[,4]))
+probelist = rownames(expr_quant.all)
+probelist = as.matrix(probelist)
+colnames(probelist) = c("ILMN")
+colnames(probeinfolist) = c("Chr", "Probe")
+chrlist = merge(probelist, probeinfolist, by.x = "ILMN", by.y = "Probe", all.x = T, all.y = F, sort=F)
+chrfinal = as.matrix(chrlist[,2])
+
+#Read in data
+avg_beta = expr_quant.all
+chr = chrfinal
+
+hist(as.numeric(chrfinal))
+#Open pdf
+
+pdf(file = "heatmap_dendrogram.pdf")
+
+# Make dendogram of the data
+plot(hclust(dist(t(avg_beta[,1:24]))), xlab = "", main = "Dendrogram")
+
+#Make dendograms using pearson
+#plot(cor(as.matrix(avg_beta)), xlab = "", main = "Dendrogram by Pearson")
+
+# Make dendogram of the data without the X chr
+plot(hclust(dist(t(avg_beta[chr != "24" ,1:24]))), xlab = "", main = "Dendrogram w/o X chr")
+
+# Make dendogram of iPSCs only
+plot(hclust(dist(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]))), xlab = "", main = "Dendrogram with only iPSCs")
+
+# Make dendogram of iPSCs only w/o X chr
+plot(hclust(dist(t(avg_beta[chr != "24" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][,1:16]))), xlab = "", main = "Dendrogram with only iPSCs, w/o X chr")
+
+
+# Make heatmap of the data
+heatmap(cor(as.matrix(avg_beta[,1:24]), use = "complete"))
+
+dev.off()
+
+pdf(file = "Xchr_expression.pdf")
+
+# Make histogram of all of the X chromosome 
+
+for (i in 1:24){
+  hist(avg_beta[chr == "24", i], main = colnames(avg_beta)[i])
+}
+
+dev.off()
+
+#Test for robustness
+pdf(file = "dendrogram_robustness.pdf")
+plot(hclust(dist(t(avg_beta[chr != "24" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][,1:16]))), xlab = "", main = "Dendrogram with only iPSCs, w/o X chr")
+for (i in 1:20){
+  tmp = sample(1:16571, 9943)
+  plot(hclust(dist(t(avg_beta[chr != "24" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][tmp,]))), xlab = "", main = paste("Robustness 60%", i))
+}
+
+for (i in 1:20){
+  tmp = sample(1:16571, 4972)
+  plot(hclust(dist(t(avg_beta[chr != "24" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][tmp,1:16]))), xlab = "", main = paste("Robustness 30%", i))
+}
+
+
+
+for (i in 1:20){
+  tmp = sample(1:16571, 1658)
+  plot(hclust(dist(t(avg_beta[chr != "24" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][tmp,1:16]))), xlab = "", main = paste("Robustness 10%", i))
+}
+
+dev.off()
+
+
+#PCA
+
+pdf(file = "PCA.pdf")
+Leg = samplenames$Deriv
+#All the data
+x.pca = prcomp(na.omit(avg_beta), scale = T, center = T)
+x.pca.sum = summary(x.pca)
+plot(x.pca$rotation[,1], x.pca$rotation[,2], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',x.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+plot(x.pca$rotation[,2], x.pca$rotation[,3], xlab = paste('PC2 (',x.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',x.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+
+ipsc.pca = prcomp(na.omit(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
+ipsc.pca.sum = summary(ipsc.pca)
+
+#Make sample covar file with only iPSCs
+rem = grep ("LCL|Fib" , samplenames$Name)
+samplenames.ipsc = samplenames[-rem,]
+
+ipsc_only_leg = c("red", "blue", "orange", "black", "blue", "black", "red", "orange", "blue", "red", "blue", "orange", "red", "black", "orange", "black")
+
+ipsc_only_shape =  c(18, 20,20,20,20,20,20,18, 20,20,18,20,20,20,20,18)
+
+plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,2], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+
+
+plot(ipsc.pca$rotation[,2], ipsc.pca$rotation[,3], xlab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+
+
+plot(ipsc.pca$rotation[,3], ipsc.pca$rotation[,4], xlab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''),ylab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''), main = "PC3/4 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+
+
+plot(ipsc.pca$rotation[,4], ipsc.pca$rotation[,5], xlab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''),ylab = paste('PC5 (',ipsc.pca.sum$importance[2,5], ')', sep = ''), main = "PC4/5 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+
+plot(ipsc.pca$rotation[,5], ipsc.pca$rotation[,6], xlab = paste('PC5 (',ipsc.pca.sum$importance[2,5], ')', sep = ''),ylab = paste('PC6 (',ipsc.pca.sum$importance[2,6], ')', sep = ''), main = "PC5/6 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+
+
+dev.off()
+
+covars = list(mef, batch, type,sex,indiv,pluri,novel,der)
+
+batch.ipsc = samplenames.ipsc$Batch
+mef.ipsc = samplenames.ipsc$MEF
+type.ipsc = samplenames.ipsc$Type
+sex.ipsc =  samplenames.ipsc$Sex
+indiv.ipsc = samplenames.ipsc$Indiv
+pluri.ipsc =  samplenames.ipsc$Pluri
+novel.ipsc = samplenames.ipsc$Novelty
+der.ipsc = samplenames.ipsc$Deriv
+
+covars.ipsc = list(mef.ipsc, batch.ipsc,sex.ipsc,indiv.ipsc,pluri.ipsc,novel.ipsc,der.ipsc)
+
+samplenames.ipsc
+lmPCA = function(pca, covars, npcs)
+{
+  results<-c()
+  for (f in covars) {
+    for (i in 1:npcs)
+    {
+      s = summary(lm(pca$rotation[,i]~f));
+      results<-c(results,pf(s$fstatistic[[1]],
+                            s$fstatistic[[2]],s$fstatistic[[3]], lower.tail = FALSE),
+                 s$adj.r.squared)
+    }
+  }
+  resultsM<-matrix(nrow = length(covars), ncol = 2*npcs, data =
+                     results, byrow = TRUE)
+  resultsM
+  
+  
+}
+
+pcaresults = lmPCA(x.pca,covars,4)
+rownames(pcaresults) = c("mef","batch", "type","sex","indiv","pluri","novel","der")
+colnames(pcaresults) = c("PC1 pval", "PC1 adj R sqs","P2 pval", "PC2 adj R sqs","PC3 pval", "PC3 adj R sqs","PC4 pval", "PC4 adj R sqs")
+
+pcaresults.ipsc = lmPCA(ipsc.pca,covars.ipsc,4)
+rownames(pcaresults.ipsc) = c("mef","batch","sex","indiv","pluri","novel","der")
+colnames(pcaresults.ipsc) = c("PC1 pval", "PC1 adj R sqs","P2 pval", "PC2 adj R sqs","PC3 pval", "PC3 adj R sqs","PC4 pval", "PC4 adj R sqs")
 
 #Make a heatmap with raw data
 library("gplots")
