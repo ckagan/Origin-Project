@@ -140,8 +140,13 @@ colnames(probeinfolist) = c("Chr", "Probe")
 chrlist = merge(probelist, probeinfolist, by.x = "ILMN", by.y = "Probe", all.x = T, all.y = F, sort=F)
 chrfinal = as.matrix(chrlist[,2])
 
+#If you want mean subtracted and variance divided data
+#stan = apply(expr_quant.all,1, function(x) (x-mean(x))/sd(x))
+stan = apply(expr_quant.all,1, function(x) x-mean(x))
+stand = t(stan)
 #Read in data
 avg_beta = expr_quant.all
+avg_beta = stand
 chr = chrfinal
 
 hist(as.numeric(chrfinal))
@@ -153,13 +158,16 @@ pdf(file = "heatmap_dendrogram.pdf")
 plot(hclust(dist(t(avg_beta[,1:24]))), xlab = "", main = "Dendrogram")
 
 #Make dendograms using pearson
-#plot(cor(as.matrix(avg_beta)), xlab = "", main = "Dendrogram by Pearson")
+plot(hclust(as.dist(1-cor(as.matrix(avg_beta)))))
 
 # Make dendogram of the data without the X chr
 plot(hclust(dist(t(avg_beta[chr != "24" ,1:24]))), xlab = "", main = "Dendrogram w/o X chr")
 
 # Make dendogram of iPSCs only
 plot(hclust(dist(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]))), xlab = "", main = "Dendrogram with only iPSCs")
+
+#Pearson
+plot(hclust(as.dist(1-cor(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]))), xlab = "", main = "Dendrogram with only iPSCs")
 
 # Make dendogram of iPSCs only w/o X chr
 plot(hclust(dist(t(avg_beta[chr != "24" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][,1:16]))), xlab = "", main = "Dendrogram with only iPSCs, w/o X chr")
@@ -224,18 +232,18 @@ ipsc_only_leg = c("red", "blue", "orange", "black", "blue", "black", "red", "ora
 
 ipsc_only_shape =  c(18, 20,20,20,20,20,20,18, 20,20,18,20,20,20,20,18)
 
-plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,2], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,2], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
 
 
-plot(ipsc.pca$rotation[,2], ipsc.pca$rotation[,3], xlab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+plot(ipsc.pca$rotation[,2], ipsc.pca$rotation[,3], xlab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
 
 
-plot(ipsc.pca$rotation[,3], ipsc.pca$rotation[,4], xlab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''),ylab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''), main = "PC3/4 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+plot(ipsc.pca$rotation[,3], ipsc.pca$rotation[,4], xlab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''),ylab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''), main = "PC3/4 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
 
 
-plot(ipsc.pca$rotation[,4], ipsc.pca$rotation[,5], xlab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''),ylab = paste('PC5 (',ipsc.pca.sum$importance[2,5], ')', sep = ''), main = "PC4/5 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+plot(ipsc.pca$rotation[,4], ipsc.pca$rotation[,5], xlab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''),ylab = paste('PC5 (',ipsc.pca.sum$importance[2,5], ')', sep = ''), main = "PC4/5 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
 
-plot(ipsc.pca$rotation[,5], ipsc.pca$rotation[,6], xlab = paste('PC5 (',ipsc.pca.sum$importance[2,5], ')', sep = ''),ylab = paste('PC6 (',ipsc.pca.sum$importance[2,6], ')', sep = ''), main = "PC5/6 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "red","red"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+plot(ipsc.pca$rotation[,5], ipsc.pca$rotation[,6], xlab = paste('PC5 (',ipsc.pca.sum$importance[2,5], ')', sep = ''),ylab = paste('PC6 (',ipsc.pca.sum$importance[2,6], ')', sep = ''), main = "PC5/6 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
 
 
 dev.off()
@@ -280,6 +288,35 @@ colnames(pcaresults) = c("PC1 pval", "PC1 adj R sqs","P2 pval", "PC2 adj R sqs",
 pcaresults.ipsc = lmPCA(ipsc.pca,covars.ipsc,4)
 rownames(pcaresults.ipsc) = c("mef","batch","sex","indiv","pluri","novel","der")
 colnames(pcaresults.ipsc) = c("PC1 pval", "PC1 adj R sqs","P2 pval", "PC2 adj R sqs","PC3 pval", "PC3 adj R sqs","PC4 pval", "PC4 adj R sqs")
+
+
+avg_beta = stand
+ipsc.pca = prcomp(na.omit(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
+ipsc.pca.sum = summary(ipsc.pca)
+
+pcaresults.ipsc.stan = lmPCA(ipsc.pca,covars.ipsc,4)
+rownames(pcaresults.ipsc.stan) = c("mef","batch","sex","indiv","pluri","novel","der")
+colnames(pcaresults.ipsc.stan) = c("PC1 pval", "PC1 adj R sqs","P2 pval", "PC2 adj R sqs","PC3 pval", "PC3 adj R sqs","PC4 pval", "PC4 adj R sqs")
+
+covarcor = function(covars)
+{
+  results<-c()
+  for (f in covars) {
+  
+      s = cor(covar[f], covar);
+      results<-c(results,pf(s$fstatistic[[1]],
+                            s$fstatistic[[2]],s$fstatistic[[3]], lower.tail = FALSE),
+                 s$adj.r.squared)
+    }
+  }
+  resultsM<-matrix(nrow = length(covars), ncol = 2*npcs, data =
+                     results, byrow = TRUE)
+  resultsM
+  
+  
+}
+
+
 
 #Make a heatmap with raw data
 library("gplots")
