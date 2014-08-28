@@ -553,6 +553,68 @@ plot(hclust(as.dist(1-cor(as.matrix(gene100var[,grep ("LCL|Fib" , colnames(gene1
 
 
 #############
+
+##Regress out pluri to see if this fixes dendogram##
+pluri.residual.int = matrix(nrow= nrow(expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]), ncol = ncol(expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]))
+rownames(pluri.residual.int) = rownames(expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+colnames(pluri.residual.int) = colnames(expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+
+expr_quant = expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]
+expr_gene.i = expr_gene[,grep ("LCL|Fib", colnames(expr_gene),invert=T)]
+for (i in 1:nrow(expr_quant)) {
+  model= lm(expr_quant[i,]~ samplenames.ipsc$Pluri)
+  pluri.residual.int[i,] = resid(model) + model$coefficients[1]
+}
+plot(hclust(as.dist(1-cor(as.matrix(pluri.residual.int)))))
+
+
+#To get the correlation between indiv vs non-indiv
+library(gplots)
+cormatrix <- cor(expr_gene.i)
+varmatrix = var(expr_gene.i)
+names = c("S0961", "S1194", "S8126", "S4280", "S1194", 
+          "S4280", "S0961", "S8126", "S1194", "S0961", 
+          "S1194", "S8126", "S0961", "S4280", "S8126", 
+          "S4280")
+colnames(cormatrix) = names
+rownames(cormatrix) = names
+
+colnames(varmatrix) = names
+rownames(varmatrix) = names
+
+replicates=c()
+non.replicates=c()
+
+for(i in 1:15){
+  for(j in (i+1):16){
+    if(names[i]==names[j]){
+      replicates=c(replicates,cormatrix[i,j])
+    }
+    else{
+      non.replicates=c(non.replicates,cormatrix[i,j])
+    }
+  }
+}
+boxplot2(replicates,non.replicates, main = "Correlation of Samples", ylab = "Correlation", xlab = "Replicates vs Non-Replicates")
+
+varmatrix = var(expr_gene.i)
+var.m = varmatrix[,1]
+
+boxplot2(var.m~names, main = "Variance of Individuals", ylab = "Variance", xlab = "Individuals")
+
+varmatrix = var(pluri.residual.int)
+var.m = varmatrix[,1]
+
+col.box = c("red", "blue", "blue", 
+            "blue", "blue", "blue", "blue", "red", 
+            "blue", "blue", "red", "blue", "blue", 
+            "blue", "blue", "red")
+varorder = c("S0961", "S1194", "S8126", "S4280", 
+               "S1194", "S4280", "S0961", "S8126", "S1194", "S0961", "S1194", 
+               "S8126", "S0961", "S4280", "S8126", "S4280")
+boxplot2(var.m~varorder, main = "Variance of individuals after regressing Pluri score", ylab = "Variance", xlab = "Individuals")
+beeswarm(var.m~varorder,add=T, col=col.box, vertical=T,pch=20)
+
 ###### Irene venn diagram code
 library(VennDiagram, lib="~/R_libs")
 
