@@ -413,8 +413,143 @@ dim(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ])
 dim(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , ])
 dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ])
 
+write.table(LCL_vs_Fibs,'DE_LCLvFib.txt', quote=F, sep = '\t')
+write.table(LCLs_vs_iPSC.L,'DE_LCLviPSC.txt', quote=F, sep = '\t')
+write.table(Fibs_vs_iPSC.F,'DE_FibviPSC.txt', quote=F, sep = '\t')
 
-getAnnotation(meth.normalized[rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < .01 , ]),])$UCSC_RefGene_Name
+##Subset out based on Sammy's variance genes##
+sammy= read.table('Variance iPSCs by gene.txt', as.is=T, header=T)
+filt_sammy = sammy[which(rownames(sammy) %in% rownames(expr_gene)),]
+filt_sammy_allvar = filt_sammy[order(filt_sammy[,1],decreasing=TRUE),]
+dim(filt_sammy)
+#[1] 12549     2
+#10% 
+sammy10 = filt_sammy[1:1255,]
+gene10 = expr_gene[which(rownames(sammy10) %in% rownames(expr_gene)),]
+
+#Confirm the right rows were pulled
+test = rbind(rownames(sammy10), rownames(gene10))
+dim(unique(test))
+
+plot(hclust(as.dist(1-cor(as.matrix(gene10[,grep ("LCL|Fib" , colnames(gene10), invert = T)])))),main = "Dendogram using only the 10% most variant genes")
+
+#20% 
+sammy20 = filt_sammy[1:2510,]
+gene20 = expr_gene[which(rownames(sammy20) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene20[,grep ("LCL|Fib" , colnames(gene20), invert = T)])))), main = "Dendogram using only the 20% most variant genes")
+
+#30% 
+sammy30 = filt_sammy[1:3765,]
+gene30 = expr_gene[which(rownames(sammy30) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene30[,grep ("LCL|Fib" , colnames(gene30), invert = T)])))),main = "Dendogram using only the 30% most variant genes")
+
+#40% 
+sammy40 = filt_sammy[1:5020,]
+gene40 = expr_gene[which(rownames(sammy40) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene40[,grep ("LCL|Fib" , colnames(gene40), invert = T)])))),main = "Dendogram using only the 40% most variant genes")
+
+#50% 
+sammy50 = filt_sammy[1:6275,]
+gene50 = expr_gene[which(rownames(sammy50) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene50[,grep ("LCL|Fib" , colnames(gene50), invert = T)])))),main = "Dendogram using only the 50% most variant genes")
+
+#60% 
+sammy60 = filt_sammy[1:7530,]
+gene60 = expr_gene[which(rownames(sammy60) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene60[,grep ("LCL|Fib" , colnames(gene60), invert = T)])))),main = "Dendogram using only the 60% most variant genes")
+
+#70% 
+sammy70 = filt_sammy[1:8785,]
+gene70 = expr_gene[which(rownames(sammy70) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene70[,grep ("LCL|Fib" , colnames(gene70), invert = T)])))),main = "Dendogram using only the 70% most variant genes")
+
+#80% 
+sammy80 = filt_sammy[1:10040,]
+gene80 = expr_gene[which(rownames(sammy80) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene80[,grep ("LCL|Fib" , colnames(gene80), invert = T)])))),main = "Dendogram using only the 80% most variant genes")
+
+#90% 
+sammy90 = filt_sammy[1:11294,]
+gene90 = expr_gene[which(rownames(sammy90) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene90[,grep ("LCL|Fib" , colnames(gene90), invert = T)])))),main = "Dendogram using only the 90% most variant genes")
+
+#100% 
+sammy100 = filt_sammy[1:12549,]
+gene100 = expr_gene[which(rownames(sammy100) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene100[,grep ("LCL|Fib" , colnames(gene100), invert = T)])))),main = "Dendogram using only the 100% most variant genes")
+
+sammy10var = filt_sammy_allvar[1:1255,]
+gene10var = expr_gene[which(rownames(sammy10var) %in% rownames(expr_gene)),]
+
+##Filter based on Sammy's variance
+#Confirm the right rows were pulled
+test = rbind(rownames(sammy10var), rownames(gene10var))
+dim(unique(test))
+
+plot(hclust(as.dist(1-cor(as.matrix(gene10var[,grep ("LCL|Fib" , colnames(gene10var), invert = T)])))),main = "Dendogram using only the 10var% most variant genes")
+
+#20var% 
+sammy20var = filt_sammy_allvar[1:2510,]
+gene20var = expr_gene[which(rownames(sammy20var) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene20var[,grep ("LCL|Fib" , colnames(gene20var), invert = T)])))), main = "Dendogram using only the 20var% most variant genes")
+
+#30var% 
+sammy30var = filt_sammy_allvar[1:3765,]
+gene30var = expr_gene[which(rownames(sammy30var) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene30var[,grep ("LCL|Fib" , colnames(gene30var), invert = T)])))),main = "Dendogram using only the 30var% most variant genes")
+
+#40var% 
+sammy40var = filt_sammy_allvar[1:5020,]
+gene40var = expr_gene[which(rownames(sammy40var) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene40var[,grep ("LCL|Fib" , colnames(gene40var), invert = T)])))),main = "Dendogram using only the 40var% most variant genes")
+
+#50var% 
+sammy50var = filt_sammy_allvar[1:6275,]
+gene50var = expr_gene[which(rownames(sammy50var) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene50var[,grep ("LCL|Fib" , colnames(gene50var), invert = T)])))),main = "Dendogram using only the 50var% most variant genes")
+
+#60var% 
+sammy60var = filt_sammy_allvar[1:7530,]
+gene60var = expr_gene[which(rownames(sammy60var) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene60var[,grep ("LCL|Fib" , colnames(gene60var), invert = T)])))),main = "Dendogram using only the 60var% most variant genes")
+
+#70var% 
+sammy70var = filt_sammy_allvar[1:8785,]
+gene70var = expr_gene[which(rownames(sammy70var) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene70var[,grep ("LCL|Fib" , colnames(gene70var), invert = T)])))),main = "Dendogram using only the 70var% most variant genes")
+
+#80var% 
+sammy80var = filt_sammy_allvar[1:10040,]
+gene80var = expr_gene[which(rownames(sammy80var) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene80var[,grep ("LCL|Fib" , colnames(gene80var), invert = T)])))),main = "Dendogram using only the 80var% most variant genes")
+
+#90var% 
+sammy90var = filt_sammy_allvar[1:11294,]
+gene90var = expr_gene[which(rownames(sammy90var) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene90var[,grep ("LCL|Fib" , colnames(gene90var), invert = T)])))),main = "Dendogram using only the 90var% most variant genes")
+
+#100% 
+sammy100var = filt_sammy_allvar[1:12549,]
+gene100var = expr_gene[which(rownames(sammy100var) %in% rownames(expr_gene)),]
+
+plot(hclust(as.dist(1-cor(as.matrix(gene100var[,grep ("LCL|Fib" , colnames(gene100var), invert = T)])))),main = "Dendogram using only the 100var% most variant genes")
 
 
 #############
