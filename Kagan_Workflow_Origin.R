@@ -130,6 +130,44 @@ novel.num = as.numeric(novel)
 
 #rm(cond, spec, tech, sex, age, pluri, novel)
 
+## Finding the unique gene names matching probes to gene names using Darren's good probe list
+gene_names=c()
+for(i in 1:dim(expr_quant.all)[1]){
+  gene_names=c(gene_names,as.vector(goodprobes[as.vector(goodprobes[,4])==row.names(expr_quant.all)[i],8]))
+}
+
+symbolsUniq = unique(gene_names)
+length(symbolsUniq)
+#[1] 12872
+
+
+## This loop will give the most 3' value for multiple probes within the same gene. In the end you get a simple file with all genes that are expressed with the corresponding mean intensity expression levels across its different probes.
+expr_gene = matrix(NA, ncol=24, nrow=length(unique(gene_names)))
+i=0
+for(gene in unique(gene_names)){
+  i = i+1
+  
+  currRows = which(gene_names == gene)
+  if(length(currRows)>1){
+    if(goodprobes[currRows[1],6]=="+"){
+      keepRow = currRows[which.max(goodprobes[currRows,2])]
+    }
+    else{
+      keepRow = currRows[which.min(goodprobes[currRows,2])]
+    }
+  }
+  else{
+    keepRow=currRows[1]
+  }
+  expr_gene[i,] = expr_quant.all[keepRow,]
+  
+} 
+dim(expr_gene)
+rownames(expr_gene) = unique(gene_names)
+colnames(expr_gene) = colnames(expr_quant.all)
+
+
+
 #To use Nick's dendogram script
 #First generate the chr file
 probeinfolist = cbind(goodprobes$chr, as.character(goodprobes[,4]))
@@ -141,8 +179,23 @@ chrlist = merge(probelist, probeinfolist, by.x = "ILMN", by.y = "Probe", all.x =
 chrfinal = as.matrix(chrlist[,2])
 
 #If you want mean subtracted and variance divided data
-#stan = apply(expr_quant.all,1, function(x) (x-mean(x))/sd(x))
+head(expr_quant.all[,grep ("LCL", colnames(expr_quant.all))])
 stan = apply(expr_quant.all,1, function(x) x-mean(x))
+variance.LCL = apply(expr_quant.all[,grep ("LCL", colnames(expr_quant.all))],1,function(x) var(x))
+variance.Fib = apply(expr_quant.all[,grep ("Fib", colnames(expr_quant.all))],1,function(x) var(x))
+head(expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+variance.iPSC = apply(expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)],1,function(x) var(x))
+
+library(ggplot2)
+var_all <- data.frame(var=c(variance.LCL, variance.Fib, variance.iPSC), type = rep(c("LCL","Fib", "iPSC"), times=c(length(variance.LCL))))
+ggplot(var_all, aes(x=var, fill=type)) + geom_density(alpha=0.5) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
+ggplot(as.data.frame(variance.LCL), aes(x=var, fill=type)) + geom_density(alpha=0.5) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
+d=density(variance.LCL)
+f = density(variance.Fib)
+ip = density(variance.iPSC)
+plot(f, xlim= c(-.01,.2))
+
+
 stand = t(stan)
 #Read in data
 avg_beta = expr_quant.all
@@ -261,7 +314,7 @@ der.ipsc = samplenames.ipsc$Deriv
 
 covars.ipsc = list(mef.ipsc, batch.ipsc,sex.ipsc,indiv.ipsc,pluri.ipsc,novel.ipsc,der.ipsc)
 
-samplenames.ipsc
+#samplenames.ipsc
 lmPCA = function(pca, covars, npcs)
 {
   results<-c()
@@ -316,161 +369,84 @@ covarcor = function(covars)
   
 }
 
+###DE Analysis Code#####
+library(limma)
+
+#meth.final = expr_quant.all
+meth.final = expr_gene
+# Make heatmap of the data
+heatmap(cor(as.matrix(meth.final), use = "complete"))
+
+labs = c("OF", "OL", "OL", "LCL", "OL", "OL", "OL", "Fib", "OL", "Fib", 
+  "LCL", "OF", "Fib", "LCL", "OL", "LCL", "Fib", "OL", "OF", "OL", 
+  "OL", "OL", "OL", "OF")
+
+design <-(model.matrix(~0+labs))
+
+colnames(design) <- c("Fib", "LCL", "OF", "OL")
+
+fit  <- lmFit(meth.final, design)
+fit <- eBayes(fit)
+
+cm <- makeContrasts(
+  OLvsOF = OL-OF,
+  OLvsLCL = OL-LCL,
+  OFvsFib = OF-Fib,
+  LCLvsFib = LCL-Fib,
+  levels=design)
+
+fit2 <- contrasts.fit(fit, cm)
+fit2 <-eBayes(fit2)
+
+iPSC_DMR <- topTable(fit2, coef=1, adjust="BH", number=Inf, sort.by="p")
+LCLs_vs_iPSC.L <- topTable(fit2, coef=2, adjust="BH", number=Inf, sort.by="p")
+Fibs_vs_iPSC.F <- topTable(fit2, coef=3, adjust="BH", number=Inf, sort.by="p")
+LCL_vs_Fibs <- topTable(fit2, coef=4, adjust="BH", number=Inf, sort.by="p")
+
+overlap_iPSC_DMR_Origin_DMRs = iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ][rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 ,]) %in% rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 ,]) , ]
+
+dist_of_Ps = iPSC_DMR[rownames(iPSC_DMR) %in% rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ]) , ]
+
+head(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ])
+dim(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ])
+dim(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ])
+dim(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , ])
+dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ])
 
 
-#Make a heatmap with raw data
-library("gplots")
-cor <- cor(expr_quant.all,method="pearson", use="complete.obs")
-heatmap.2(cor, main="Probe expression correlation", key=T, revC=T, density.info="none", trace="none")
-
-#Make PC plots with raw data
-library(TeachingDemos)
-op <- par(mfrow = c(3,3), ## split region
-          oma = c(5,0,4,0) + 0.1, ## create outer margin
-          mar = c(5,4,2,2) + 0.1) ## shrink some margins
-tmp1 <- cnvrt.coords( 0.5, 0, input='plt' )$tdev
-cor <- cor(expr_quant.all, method="pearson", use="complete.obs")
-title.PC = "PCA of Gene Exp"
-sum.PC <- prcomp(na.omit(cor))
-sumsum <- summary(sum.PC)
-#prints out plots in c(#rows, #columns)
-color = samplenames[,5]
-par(mfrow = c(2,2),oma=c(0,0,2,0)) 
-plot(c(1:12),sum.PC$rotation[,1],col=color, xlab="Index of Samples",pch = 20, ylab=paste("PC 1 -",(sumsum$importance[2,1]*100),"% of variance",sep=" "),main=title.PC)
-text(c(1:12),sum.PC$rotation[,1], samplenames[,1], cex = .5, pos=3)   
-for(i in 2:4) {
-  plot(sum.PC$rotation[,1], sum.PC$rotation[,i], col=color,pch=20,main=title.PC, xlab=paste("PC 1 -", (sumsum$importance[2,1]*100),"% of variance", sep=" "), ylab=paste("PC",i,"-",(sumsum$importance[2,i]*100),"% of variance", sep=" "))
-  }  
-par(op)
-#All plotting is clipped to the device region
-par(xpd=NA)
-
-##To see if covariates are correlated with a PC (looking at PC1-7)
-sum.PC <- prcomp(na.omit(cor))
-summary(lm(sum.PC$rotation[, 1:7] ~ age.num))
-summary(lm(sum.PC$rotation[, 1:7] ~ cond.f))
-summary(lm(sum.PC$rotation[, 1:7] ~ novel.num))
-summary(lm(sum.PC$rotation[, 1:7] ~ sex.f))
-summary(lm(sum.PC$rotation[, 1:7] ~ spec.f))
-summary(lm(sum.PC$rotation[, 1:7] ~ tech.f))
-summary(lm(sum.PC$rotation[, 1:7] ~ pluri.num))
-
-#To get the correlation between replicates vs non-replicates
-replicates=c()
-non.replicates=c()
-names = as.character(samplenames[1:11,12])
-for(i in 1:10){
-  for(j in (i+1):11){
-    if(names[i]==names[j]){
-      replicates=c(replicates,cor[i,j])
-    }
-    else{
-      non.replicates=c(non.replicates,cor[i,j])
-    }
-  }
-}
-boxplot.n(replicates,non.replicates, main = "Correlation of iPSC Samples", ylab = "Correlation", xlab = "Replicates                                              Non-Replicates")
+getAnnotation(meth.normalized[rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < .01 , ]),])$UCSC_RefGene_Name
 
 
-## Finding the unique gene names matching probes to gene names using Darren's good probe list
-gene_names=c()
-for(i in 1:dim(expr_quant.all)[1]){
-  gene_names=c(gene_names,as.vector(goodprobes[as.vector(goodprobes[,4])==row.names(expr_quant.all)[i],8]))
+#############
+###### Irene venn diagram code
+library(VennDiagram, lib="~/R_libs")
+
+make.venn.pair <- function(geneset1, geneset2, prefix, geneset1.label, geneset2.label,universe){
+  pdf(file=paste(prefix, ".pdf", sep=""), width=7, height=7)
+  venn.placeholder <- draw.pairwise.venn(length(geneset1),length(geneset2), length(which(geneset1 %in% geneset2) == TRUE), c(geneset1.label, geneset2.label), fill=c("goldenrod", "plum4"), alpha=c(0.5, 0.5),col=NA, euler.d=T)
+  complement.size <- dim(universe)[1] - length(geneset1) - length(geneset2) + length(which(geneset1 %in% geneset2) == TRUE)
+  grid.text(paste(complement.size, " not DE\nin either", sep=""), x=0.1, y=0.1)
+  dev.off()
 }
 
-symbolsUniq = unique(gene_names)
-length(symbolsUniq)
-#[1] 13698
+make.venn.pair(ran.array.ipsc[ran.array.ipsc$adj.P.Val < 0.01,]$genes, ran.array.ipsc[ran.array.ipsc$DE.liver > 10,]$genes, "de_ipsc_vs_liver_2008", "DE iPSC\n FDR 1%", "DE liver,\nBlekhman 2008\n FDR 0.6%", ran.array.ipsc)
+make.venn.pair(ran.array.ipsc[ran.array.ipsc$adj.P.Val < 0.01,]$genes, ran.array.ipsc[ran.array.ipsc$DE.heart > 10,]$genes, "de_ipsc_vs_heart_2008", "DE iPSC\n FDR 1%", "DE heart,\nBlekhman 2008\n FDR 0.6%", ran.array.ipsc)
+make.venn.pair(ran.array.ipsc[ran.array.ipsc$adj.P.Val < 0.01,]$genes, ran.array.ipsc[ran.array.ipsc$DE.kidney > 10,]$genes, "de_ipsc_vs_kidney_2008", "DE iPSC\n FDR 1%", "DE kidney,\nBlekhman 2008\n FDR 0.6%", ran.array.ipsc)
+
+make.venn.pair(ran.exprs.ipsc[ran.exprs.ipsc$adj.P.Val < 0.01,]$genes, ran.exprs.ipsc[ran.exprs.ipsc$deHC == T,]$genes, "de_ipsc_vs_liver_2010", "DE iPSC\n FDR 1%", "DE liver,\nBlekhman 2010\n FDR 5%", ran.exprs.ipsc)
 
 
-## This loop will give the most 3' value for multiple probes within the same gene. In the end you get a simple file with all genes that are expressed with the corresponding mean intensity expression levels across its different probes.
-expr_gene = matrix(NA, ncol=24, nrow=length(unique(gene_names)))
-i=0
-for(gene in unique(gene_names)){
-  i = i+1
-  
-  currRows = which(gene_names == gene)
-  if(length(currRows)>1){
-    if(goodprobes[currRows[1],6]=="+"){
-      keepRow = currRows[which.max(goodprobes[currRows,2])]
-    }
-    else{
-      keepRow = currRows[which.min(goodprobes[currRows,2])]
-    }
-  }
-  else{
-    keepRow=currRows[1]
-  }
-  expr_gene[i,] = expr_quant.all[keepRow,]
-  
-} 
-dim(expr_gene)
-rownames(expr_gene) = unique(gene_names)
-colnames(expr_gene) = colnames(expr_quant.all)
 
-expr_gene_ord = expr_gene[order(colnames(expr_gene))]
+make.venn.triple <- function(geneset1, geneset2, geneset3, prefix, geneset1.label, geneset2.label, geneset3.label, universe){
+  universe$g1 <- universe$genes %in% geneset1
+  universe$g2 <- universe$genes %in% geneset2
+  universe$g3 <- universe$genes %in% geneset3
+  pdf(file=paste(prefix, ".pdf", sep=""), width=7, height=7)
+  venn.placeholder <- draw.triple.venn(length(geneset1), length(geneset2), length(geneset3), dim(universe[universe$g1 == T & universe$g2 == T,])[1], dim(universe[universe$g2 == T & universe$g3 == T,])[1], dim(universe[universe$g1 == T & universe$g3 == T,])[1], dim(universe[universe$g1 == T & universe$g2 == T & universe$g3 == T,])[1], c(geneset1.label, geneset2.label, geneset3.label), fill=c("goldenrod", "plum4", "steelblue3"), alpha=c(0.5, 0.5, 0.5),col=NA, euler.d=T)
+  complement.size <- dim(universe[universe$g1 == F & universe$g2 == F & universe$g3 == F,][1])
+  grid.text(paste(complement.size, " not DE\nin any", sep=""), x=0.1, y=0.1)
+  dev.off()
+}
 
 
-## To make heatmap (with key and title)
-library(gplots)
-cor.q <- cor(expr_gene,method="pearson", use="complete.obs")
-heatmap.2(cor.q, main="Gene Expression", key=T, revC=T, density.info="none", trace="none")
-
-## To make another version of heatmap with color codes 
-library(gplots)
-covarmi= as.character(samplenames[-12,7])
-heatmap.2(cor.q, main= "Correlation", key=T, revC=T,ColSideColors=covarmi, density.info="none", trace="none")
-
-##Make a heatmap using only iPSC
-expr_gene_iPSC = expr_gene[,-12]
-cor.i <- cor(expr_gene_iPSC,method="pearson", use="complete.obs")
-heatmap.2(cor.i, main= "Correlation of iPSCs", key=T, revC=T,ColSideColors=covarmi, density.info="none", trace="none")
-
-##PCA all probes
-plot_colors<-c("black","purple")
-library(TeachingDemos)
-op <- par(mfrow = c(3,3), ## split region
-          oma = c(5,0,4,0) + 0.1, ## create outer margin
-          mar = c(5,4,2,2) + 0.1) ## shrink some margins
-tmp1 <- cnvrt.coords( 0.5, 0, input='plt' )$tdev
-title.PC = "PCA of Gene Exp"
-sum.PC.i <- prcomp(na.omit(cor.i))
-sumsum.i <- summary(sum.PC.i)
-color = covarmi
-#prints out plots in c(#rows, #columns)
-par(mfrow = c(2,2),oma=c(0,0,2,0)) 
-plot(c(1:11),sum.PC.i$rotation[,1],xlab="Index of Samples",pch = 20, ylab=paste("PC 1 -",(sumsum.i$importance[2,1]*100),"% of variance",sep=" "),main=title.PC)
-text(c(1:11),sum.PC.i$rotation[,1], samplenames[-12,1], cex = .5, pos=3)   
-for(i in 2:4) {
-  plot(sum.PC.i$rotation[,1], sum.PC.i$rotation[,i], pch=20,main=title.PC, xlab=paste("PC 1 -", (sumsum.i$importance[2,1]*100),"% of variance", sep=" "), ylab=paste("PC",i,"-",(sumsum.i$importance[2,i]*100),"% of variance", sep=" "))
-  text(sum.PC.i$rotation[,1], sum.PC.i$rotation[,i], samplenames[-12,1], cex = .5, pos=3)}  
-par(op)
-
-
-##Extraction PC data from PCA
-PCS1 = sum.PC$rotation
-View(PCS1)
-PCS2 =sum.PC2$rotation
-View(PCS2)
-PCS3 =sum.PC3$rotation
-View(PCS3)
-#Check this
-#PCs are columns, inds are rows, like this:
-#               PC1          PC2          PC3           PC4          PC5
-#87_MH  -0.08176976 -0.132745281 -0.069088998  0.1525655116 -0.106039703
-#125_MH -0.18216685 -0.083451452  0.079887299 -0.1936390876 -0.204922215
-#168_ML -0.01938816 -0.205549632 -0.027594568 -0.0324146775 -0.223454860
-#209_FL -0.12189288 -0.129940372 -0.052735639  0.0120791405 -0.178501057
-
-
-#Looking for corellation of PC's to covariates
-#Look at p-value
-summary(lm(sum.PC.final$rotation[1:9, 1:7] ~ prot.f))
-summary(lm(sum.PC.final$rotation[-2, 1:7] ~ bmi))
-
-#To pull out expression information
-#For the expression of CDKL3 gene
-expr_gene["MESP1",]
-finalstatus = samplenames[,13]
-#To make a boxplot
-boxplot(expr_gene["MYL3",]~finalstatus, main = "Expression of MYL3", ylab = "expression")
+make.venn.triple(ran.array.ipsc[ran.array.ipsc$DE.kidney > 10,]$genes, ran.array.ipsc[ran.array.ipsc$DE.heart > 10,]$genes, ran.array.ipsc[ran.array.ipsc$DE.liver > 10,]$genes, "de_triple_blekhman_2008", "DE Kidney", "DE Heart", "DE Liver", ran.array.ipsc)
