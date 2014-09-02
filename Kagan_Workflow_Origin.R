@@ -166,6 +166,37 @@ dim(expr_gene)
 rownames(expr_gene) = unique(gene_names)
 colnames(expr_gene) = colnames(expr_quant.all)
 
+##Get a gene coord file
+gene_coords = matrix(NA, ncol=8, nrow=length(expr_quant.all))
+
+for(i in 1:dim(expr_quant.all)[1]){
+  selection = which(goodprobes[,4]==row.names(expr_quant.all)[i])
+  gene_coords[i,]= as.matrix(goodprobes[selection,])
+}
+
+gene_map = matrix(NA, ncol=8, nrow=length(unique(gene_names)))
+i=0
+for(gene in unique(gene_names)){
+  i = i+1
+  
+  currRows = which(gene_names == gene)
+  if(length(currRows)>1){
+    if(goodprobes[currRows[1],6]=="+"){
+      keepRow = currRows[which.max(goodprobes[currRows,2])]
+    }
+    else{
+      keepRow = currRows[which.min(goodprobes[currRows,2])]
+    }
+  }
+  else{
+    keepRow=currRows[1]
+  }
+  gene_map[i,] = gene_coords[keepRow,1:8]
+  
+} 
+colnames(gene_map) = colnames(goodprobes)
+write.table(gene_map, 'OriginGeneCoords.txt', quote=F, sep ='\t', row.names=F)
+
 
 
 #To use Nick's dendogram script
