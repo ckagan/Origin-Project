@@ -85,18 +85,21 @@ head(data.norm.all@featureData[[5]])
 rownames(norm_quant.all)=data.norm.all@featureData[[5]]
 #With this threshold 24,480 probes out of 47,315 are expressed
 expr_quant.all <- norm_quant.all[detect.ind.all,]
+#expr_iPSC_quant.all = norm_quant.all[detect.iPSC,]
 
-###Subset expression by Darren good probes
+###Subset expression by Darren's good probes
 goodprobes= read.table('HT-12v4_Probes_inhg19EnsemblGenes_NoCEUHapMapSNPs_Stranded.txt', header=T)
 probes = goodprobes$probeID
 ## Convert from factor to character
 probes = as.character(goodprobes$probeID)
 expr_quant.all.clean = expr_quant.all[rownames(expr_quant.all) %in% probes, ]
+expr_iPSC_quant.all.clean = expr_iPSC_quant.all[rownames(expr_iPSC_quant.all) %in% probes, ]
 dim(expr_quant.all.clean)  
 # 16,593 probes of the original 26,953 "good" probes are in this data set
 expr_quant.all= expr_quant.all.clean
 remove(expr_quant.all.clean)
 probelist = rownames(expr_quant.all)
+probelist_iPSC = rownames(expr_iPSC_quant.all.clean)
 
 ##Load in Covariates
 #Converted some factors so they are categorical 
@@ -129,6 +132,8 @@ pluri.num =as.numeric(pluri)
 novel.num = as.numeric(novel)
 
 #rm(cond, spec, tech, sex, age, pluri, novel)
+#Looking at just probes expressed in iPSCs
+#expr_quant.all = expr_iPSC_quant.all.clean
 
 ## Finding the unique gene names matching probes to gene names using Darren's good probe list
 gene_names=c()
@@ -165,6 +170,9 @@ for(gene in unique(gene_names)){
 dim(expr_gene)
 rownames(expr_gene) = unique(gene_names)
 colnames(expr_gene) = colnames(expr_quant.all)
+#colnames(expr_gene) =samplenames$Name
+
+write.table(expr_gene, 'OriginGeneExpression_Normalized.txt', sep='\t', row.names=T, quote=F)
 
 ##Get a gene coord file
 gene_coords = matrix(NA, ncol=8, nrow=length(expr_quant.all))
@@ -195,9 +203,12 @@ for(gene in unique(gene_names)){
   
 } 
 colnames(gene_map) = colnames(goodprobes)
-write.table(gene_map, 'OriginGeneCoords.txt', quote=F, sep ='\t', row.names=F)
+chr.gene = gene_map[,c(8,1)]
+
+#write.table(gene_map, 'OriginGeneCoords.txt', quote=F, sep ='\t', row.names=F)
 
 
+####Data Analysis####
 
 #To use Nick's dendogram script
 #First generate the chr file
@@ -208,44 +219,76 @@ colnames(probelist) = c("ILMN")
 colnames(probeinfolist) = c("Chr", "Probe")
 chrlist = merge(probelist, probeinfolist, by.x = "ILMN", by.y = "Probe", all.x = T, all.y = F, sort=F)
 chrfinal = as.matrix(chrlist[,2])
+hist(as.numeric(chrfinal))
 
 #If you want mean subtracted and variance divided data
-head(expr_quant.all[,grep ("LCL", colnames(expr_quant.all))])
 stan = apply(expr_quant.all,1, function(x) x-mean(x))
-variance.LCL = apply(expr_quant.all[,grep ("LCL", colnames(expr_quant.all))],1,function(x) var(x))
-variance.Fib = apply(expr_quant.all[,grep ("Fib", colnames(expr_quant.all))],1,function(x) var(x))
+stand = t(stan)
+
+#Variance by probe
+variance.probe.LCL = apply(expr_quant.all[,grep ("LCL", colnames(expr_quant.all))],1,var)
+variance.probe.Fib = apply(expr_quant.all[,grep ("Fib", colnames(expr_quant.all))],1,var)
 head(expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
-variance.iPSC = apply(expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)],1,function(x) var(x))
+variance.probe.iPSC = apply(expr_quant.all[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)],1,var)
+
+#variance by gene
+variance.LCL = apply(expr_gene[,grep ("LCL", colnames(expr_gene))],1,var)
+variance.Fib = apply(expr_gene[,grep ("Fib", colnames(expr_gene))],1,var)
+head(expr_gene[,grep ("LCL|Fib", colnames(expr_gene),invert=T)])
+variance.iPSC = apply(expr_gene[,grep ("LCL|Fib", colnames(expr_gene),invert=T)],1,var)
+mean(variance.LCL)
+# 0.03724039
+mean(variance.iPSC)
+# 0.02375778
+mean(variance.Fib)
+# 0.03143111
+
+variance.all = cbind(variance.LCL, variance.Fib, variance.iPSC)
+boxplot(variance.all, ylim = c(-.01,.05))
+var.test(variance.LCL, variance.iPSC)
+
+#F test to compare two variances
+
+#data:  variance.LCL and variance.iPSC
+#F = 3.581, num df = 12871, denom df = 12871, p-value < 2.2e-16
+#alternative hypothesis: true ratio of variances is not equal to 1
+#95 percent confidence interval:
+#  3.459422 3.706946
+#sample estimates:
+#  ratio of variances 
+#3.581046 
 
 library(ggplot2)
 var_all <- data.frame(var=c(variance.LCL, variance.Fib, variance.iPSC), type = rep(c("LCL","Fib", "iPSC"), times=c(length(variance.LCL))))
-ggplot(var_all, aes(x=var, fill=type)) + geom_density(alpha=0.5) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
-ggplot(as.data.frame(variance.LCL), aes(x=var, fill=type)) + geom_density(alpha=0.5) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
-d=density(variance.LCL)
-f = density(variance.Fib)
-ip = density(variance.iPSC)
-plot(f, xlim= c(-.01,.2))
+ggplot(var_all, aes(x=var, fill=type)) + geom_density(alpha=0.1) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
 
+var_LCL <- data.frame(var=c(variance.LCL), type = rep(c("LCL"), times=c(length(variance.LCL))))
+ggplot(var_LCL, aes(x=var, fill=type)) + geom_density(alpha=0.5) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
+var_iPSC <- data.frame(var=c(variance.iPSC), type = rep(c("iPSC"), times=c(length(variance.iPSC))))
+ggplot(var_iPSC,aes(x=var, fill=type))+ geom_density(alpha=0.5) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
 
-stand = t(stan)
 #Read in data
-avg_beta = expr_quant.all
-avg_beta = stand
-chr = chrfinal
+avg_beta = expr_gene
+#avg_beta = expr_quant.all
+#avg_beta = stand
+#chr = chrfinal
+chr = chr.gene
 
-hist(as.numeric(chrfinal))
 #Open pdf
 
 pdf(file = "heatmap_dendrogram.pdf")
 
 # Make dendogram of the data
-plot(hclust(dist(t(avg_beta[,1:24]))), xlab = "", main = "Dendrogram")
+plot(hclust(dist(t(avg_beta[,1:24]))), xlab = "hclust/Euclidean distance", main = "Dendrogram")
+
+plot(hclust(dist(t(avg_beta[,1:24]), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram")
+plot(hclust(dist(t(avg_beta[,1:24]), method = "canberra")), xlab = "Canberra", main = "Dendrogram")
 
 #Make dendograms using pearson
-plot(hclust(as.dist(1-cor(as.matrix(avg_beta)))))
+plot(hclust(as.dist(1-cor(as.matrix(avg_beta)))),xlab = "Pearson", main = "Dendrogram using Pearson Correlation")
 
 # Make dendogram of the data without the X chr
-plot(hclust(dist(t(avg_beta[chr != "24" ,1:24]))), xlab = "", main = "Dendrogram w/o X chr")
+plot(hclust(dist(t(avg_beta[chr[,2] != "chrX" ,]))), xlab = "hclust/Euclidean distance", main = "Dendrogram w/o X chr")
 
 # Make dendogram of iPSCs only
 plot(hclust(dist(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]))), xlab = "", main = "Dendrogram with only iPSCs")
@@ -254,11 +297,11 @@ plot(hclust(dist(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)])
 plot(hclust(as.dist(1-cor(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]))), xlab = "", main = "Dendrogram with only iPSCs")
 
 # Make dendogram of iPSCs only w/o X chr
-plot(hclust(dist(t(avg_beta[chr != "24" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][,1:16]))), xlab = "", main = "Dendrogram with only iPSCs, w/o X chr")
+plot(hclust(dist(t(avg_beta[chr[,2] != "chrX" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][,1:16]))), xlab = "", main = "Dendrogram with only iPSCs, w/o X chr")
 
 
 # Make heatmap of the data
-heatmap(cor(as.matrix(avg_beta[,1:24]), use = "complete"))
+heatmap(cor(as.matrix(avg_beta[,1:24]), use = "complete"),main="Gene expression correlation",)
 
 dev.off()
 
@@ -308,7 +351,9 @@ plot(x.pca$rotation[,2], x.pca$rotation[,3], xlab = paste('PC2 (',x.pca.sum$impo
 ipsc.pca = prcomp(na.omit(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
 ipsc.pca.sum = summary(ipsc.pca)
 
+dev.off()
 #Make sample covar file with only iPSCs
+pdf(file = "PCA iPSC only.pdf")
 rem = grep ("LCL|Fib" , samplenames$Name)
 samplenames.ipsc = samplenames[-rem,]
 
@@ -367,13 +412,13 @@ lmPCA = function(pca, covars, npcs)
 
 pcaresults = lmPCA(x.pca,covars,4)
 rownames(pcaresults) = c("mef","batch", "type","sex","indiv","pluri","novel","der")
-colnames(pcaresults) = c("PC1 pval", "PC1 adj R sqs","P2 pval", "PC2 adj R sqs","PC3 pval", "PC3 adj R sqs","PC4 pval", "PC4 adj R sqs")
+colnames(pcaresults) = c("PC1 pval", "PC1 adj R sqs","PC2 pval", "PC2 adj R sqs","PC3 pval", "PC3 adj R sqs","PC4 pval", "PC4 adj R sqs")
 
 pcaresults.ipsc = lmPCA(ipsc.pca,covars.ipsc,4)
 rownames(pcaresults.ipsc) = c("mef","batch","sex","indiv","pluri","novel","der")
-colnames(pcaresults.ipsc) = c("PC1 pval", "PC1 adj R sqs","P2 pval", "PC2 adj R sqs","PC3 pval", "PC3 adj R sqs","PC4 pval", "PC4 adj R sqs")
+colnames(pcaresults.ipsc) = c("PC1 pval", "PC1 adj R sqs","PC2 pval", "PC2 adj R sqs","PC3 pval", "PC3 adj R sqs","PC4 pval", "PC4 adj R sqs")
 
-
+#If you want to look at PCA after subtracting the mean
 avg_beta = stand
 ipsc.pca = prcomp(na.omit(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
 ipsc.pca.sum = summary(ipsc.pca)
@@ -597,6 +642,74 @@ for (i in 1:nrow(expr_quant)) {
   pluri.residual.int[i,] = resid(model) + model$coefficients[1]
 }
 plot(hclust(as.dist(1-cor(as.matrix(pluri.residual.int)))))
+
+##Regress out array to see if this fixes dendogram##
+batch.residual.int = matrix(nrow= nrow(expr_gene), ncol = ncol(expr_gene))
+rownames(batch.residual.int) = rownames(expr_gene)
+colnames(batch.residual.int) = colnames(expr_gene)
+
+for (i in 1:nrow(expr_gene)) {
+  model= lm(expr_gene[i,]~ samplenames$Batch)
+  batch.residual.int[i,] = resid(model)
+  #batch.residual.int[i,] = resid(model) + model$coefficients[1]
+}
+
+plot(hclust(as.dist(1-cor(as.matrix(batch.residual.int)))))
+plot(hclust(dist(t(batch.residual.int))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg array")
+plot(hclust(dist(t(batch.residual.int), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram")
+plot(hclust(dist(t(batch.residual.int), method = "canberra")), xlab = "Canberra", main = "Dendrogram")
+
+##Subtract mean and then regres sout batch (similar to Sammy's exp)
+stan = apply(expr_gene,1, function(x) x-mean(x))
+stand = t(stan)
+
+batch.residual.int.ms = matrix(nrow= nrow(stand), ncol = ncol(stand))
+rownames(batch.residual.int.ms) = rownames(stand)
+colnames(batch.residual.int.ms) = colnames(stand)
+
+for (i in 1:nrow(stand)) {
+  model= lm(stand[i,]~ samplenames$Batch)
+  batch.residual.int.ms[i,] = resid(model)
+  #batch.residual.int.ms[i,] = resid(model) + model$coefficients[1]
+}
+
+plot(hclust(as.dist(1-cor(as.matrix(batch.residual.int.ms)))))
+plot(hclust(dist(t(batch.residual.int.ms))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg array and sub mean")
+plot(hclust(dist(t(batch.residual.int), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram")
+plot(hclust(dist(t(batch.residual.int), method = "canberra")), xlab = "Canberra", main = "Dendrogram")
+
+##Regress out PC1 to see if this fixes dendogram##
+PC.residual.int = matrix(nrow= nrow(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]), ncol = ncol(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]))
+rownames(PC.residual.int) = rownames(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+colnames(PC.residual.int) = colnames(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+
+sum.pca = prcomp(na.omit(expr_gene[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
+PCSf = sum.pca$rotation
+
+for (i in 1:nrow(expr_gene)) {
+  model= lm(expr_gene[i,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]~ sum.pca$rotation[,1])
+  PC.residual.int[i,] = resid(model)
+  }
+plot(hclust(dist(t(PC.residual.int))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg PC1")
+
+##Subset randomly down to three individuals
+ipsc_expr = expr_gene[,grep ("LCL|Fib" , colnames(expr_gene), invert = T)]
+S0961 = ipsc_expr[,grep ("S0961" , colnames(ipsc_expr))]
+rand_S0961 = S0961[,sample(1:4, 3,replace=FALSE)]
+
+S1194 = ipsc_expr[,grep ("S1194" , colnames(ipsc_expr))]
+rand_S1194 = S1194[,sample(1:4, 3,replace=FALSE)]
+
+S4280 = ipsc_expr[,grep ("S4280" , colnames(ipsc_expr))]
+rand_4280 = S4280[,sample(1:4, 3,replace=FALSE)]
+
+S8126 = ipsc_expr[,grep ("S8126" , colnames(ipsc_expr))]
+rand_S8126 = S8126[,sample(1:4, 3,replace=FALSE)]
+
+subset_expr_ipsc = cbind(rand_S0961, rand_S1194, rand_4280,rand_S8126)
+
+plot(hclust(dist(t(subset_expr_ipsc))), xlab = "", main = "Dendrogram with subsetted iPSCs")
+plot(hclust(dist(t(expr_gene[,grep ("LCL|Fib|.F" , colnames(expr_gene), invert = T)]))), xlab = "", main = "Dendrogram with no fibro")
 
 
 #To get the correlation between indiv vs non-indiv
