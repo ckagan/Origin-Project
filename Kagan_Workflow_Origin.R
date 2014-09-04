@@ -28,6 +28,19 @@ boxplot(qcdata$mean~samplenames$Type, main = 'Mean Probe Intensity by Cell Type'
 ### NORMALIZATION: log2 stabilized and quantile normalization ###
 data.norm.all <- lumiExpresso(data.lumi, bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
 
+##Normalize by cell type
+data.norm.ipsc = lumiExpresso(data.lumi[, ipscsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
+summary(data.norm.ipsc, 'QC')
+data.norm.fib = lumiExpresso(data.lumi[, fibsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
+summary(data.norm.fib, 'QC')
+data.norm.lcl = lumiExpresso(data.lumi[, lclsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
+summary(data.norm.lcl, 'QC')
+data.norm.all = combine(data.norm.ipsc,data.norm.fib,data.norm.lcl)
+sampleorder = c(as.character(samplenames[ipscsubset,3]),as.character(samplenames[fibsubset,3]),as.character(samplenames[lclsubset,3]))
+colnames(data.norm.all) = sampleorder
+
+show(data.norm.all)
+#QC
 summary(data.norm.all, 'QC')
 
 #Summary of Samples:
@@ -44,14 +57,13 @@ summary(data.norm.all, 'QC')
 
 #Subset data by cell type and look for detection in at least 4 indivduals per subset
 detection = data.norm.all@assayData$detection
+#colnames(detection) = sampleorder
 colnames(detection) = samplenames$Name
-type = samplenames$Type
-selected = c('1')
+
 iPSCdetect = detection[,type %in% selected]
-selected = c('2')
-LCLdetect = detection[,type %in% selected]
-selected = c('3')
-Fibdetect = detection[,type %in% selected]
+iPSCdetect = detection[,grep ("LCL|Fib", colnames(detection), invert=T)]
+LCLdetect = detection[,grep ("LCL", colnames(detection))]
+Fibdetect = detection[,grep ("Fib", colnames(detection))]
 
 #Count the number of probes that have a detection p-value<.05
 iPSCdetected = rowSums(iPSCdetect<0.05)
@@ -86,6 +98,7 @@ rownames(norm_quant.all)=data.norm.all@featureData[[5]]
 #With this threshold 24,480 probes out of 47,315 are expressed
 expr_quant.all <- norm_quant.all[detect.ind.all,]
 #expr_iPSC_quant.all = norm_quant.all[detect.iPSC,]
+expr_quant.all = expr_iPSC_quant.all
 
 ###Subset expression by Darren's good probes
 goodprobes= read.table('HT-12v4_Probes_inhg19EnsemblGenes_NoCEUHapMapSNPs_Stranded.txt', header=T)
@@ -105,6 +118,8 @@ probelist_iPSC = rownames(expr_iPSC_quant.all.clean)
 #Converted some factors so they are categorical 
 samplenames = read.table('covar.txt', header=T, sep ='\t')
 colnames(expr_quant.all) = samplenames$Name
+#colnames(expr_quant.all) = sampleorder
+#samplenames = read.table('covar_reordered.txt', header=T, sep ='\t')
 
 batch = samplenames$Batch
 mef = samplenames$MEF
@@ -644,20 +659,33 @@ for (i in 1:nrow(expr_quant)) {
 plot(hclust(as.dist(1-cor(as.matrix(pluri.residual.int)))))
 
 ##Regress out array to see if this fixes dendogram##
+colnames(expr_gene) = samplenames$Name
+batch.residual = matrix(nrow= nrow(expr_gene), ncol = ncol(expr_gene))
+rownames(batch.residual) = rownames(expr_gene)
+colnames(batch.residual) = colnames(expr_gene)
+
+for (i in 1:nrow(expr_gene)) {
+  model= lm(expr_gene[i,]~ samplenames$Batch)
+  batch.residual[i,] = resid(model)
+  }
+
+plot(hclust(as.dist(1-cor(as.matrix(batch.residual)))),main = "Dendrogram reg array (no intercept)", xlab="Pearson")
+plot(hclust(dist(t(batch.residual))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg array (no intercept)")
+plot(hclust(dist(t(batch.residual), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram reg array (no intercept)")
+
+#Add intercept back
 batch.residual.int = matrix(nrow= nrow(expr_gene), ncol = ncol(expr_gene))
 rownames(batch.residual.int) = rownames(expr_gene)
 colnames(batch.residual.int) = colnames(expr_gene)
 
 for (i in 1:nrow(expr_gene)) {
   model= lm(expr_gene[i,]~ samplenames$Batch)
-  batch.residual.int[i,] = resid(model)
-  #batch.residual.int[i,] = resid(model) + model$coefficients[1]
+  batch.residual.int[i,] = resid(model) + model$coefficients[1]
 }
 
-plot(hclust(as.dist(1-cor(as.matrix(batch.residual.int)))))
-plot(hclust(dist(t(batch.residual.int))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg array")
-plot(hclust(dist(t(batch.residual.int), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram")
-plot(hclust(dist(t(batch.residual.int), method = "canberra")), xlab = "Canberra", main = "Dendrogram")
+plot(hclust(as.dist(1-cor(as.matrix(batch.residual.int)))),main = "Dendrogram reg array (w/intercept)", xlab="Pearson")
+plot(hclust(dist(t(batch.residual.int))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg array (w/intercept)")
+plot(hclust(dist(t(batch.residual.int), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram reg array (w/intercept)")
 
 ##Subtract mean and then regres sout batch (similar to Sammy's exp)
 stan = apply(expr_gene,1, function(x) x-mean(x))
@@ -669,14 +697,26 @@ colnames(batch.residual.int.ms) = colnames(stand)
 
 for (i in 1:nrow(stand)) {
   model= lm(stand[i,]~ samplenames$Batch)
-  batch.residual.int.ms[i,] = resid(model)
-  #batch.residual.int.ms[i,] = resid(model) + model$coefficients[1]
+  batch.residual.int.ms[i,] = resid(model) + model$coefficients[1]
 }
 
-plot(hclust(as.dist(1-cor(as.matrix(batch.residual.int.ms)))))
-plot(hclust(dist(t(batch.residual.int.ms))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg array and sub mean")
-plot(hclust(dist(t(batch.residual.int), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram")
-plot(hclust(dist(t(batch.residual.int), method = "canberra")), xlab = "Canberra", main = "Dendrogram")
+plot(hclust(as.dist(1-cor(as.matrix(batch.residual.int.ms)))),main = "Dendrogram reg array - ms (w/intercept)", xlab="Pearson")
+plot(hclust(dist(t(batch.residual.int.ms))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg array - ms (w/intercept)")
+plot(hclust(dist(t(batch.residual.int.ms), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram reg array - ms (w/intercept)")
+
+#Do not add intercept back in
+batch.residual.ms = matrix(nrow= nrow(stand), ncol = ncol(stand))
+rownames(batch.residual.ms) = rownames(stand)
+colnames(batch.residual.ms) = colnames(stand)
+
+for (i in 1:nrow(stand)) {
+  model= lm(stand[i,]~ samplenames$Batch)
+  batch.residual.ms[i,] = resid(model)
+  }
+
+plot(hclust(as.dist(1-cor(as.matrix(batch.residual.ms)))),main = "Dendrogram reg array - ms (no intercept)", xlab="Pearson")
+plot(hclust(dist(t(batch.residual.ms))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg array - ms (no intercept)")
+plot(hclust(dist(t(batch.residual.ms), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram reg array - ms(no intercept)")
 
 ##Regress out PC1 to see if this fixes dendogram##
 PC.residual.int = matrix(nrow= nrow(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]), ncol = ncol(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]))
@@ -687,10 +727,62 @@ sum.pca = prcomp(na.omit(expr_gene[,grep ("LCL|Fib" , colnames(avg_beta), invert
 PCSf = sum.pca$rotation
 
 for (i in 1:nrow(expr_gene)) {
-  model= lm(expr_gene[i,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]~ sum.pca$rotation[,1])
+  model= lm(expr_gene[i,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]~ sum.pca$rotation[,1:2])
   PC.residual.int[i,] = resid(model)
   }
-plot(hclust(dist(t(PC.residual.int))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg PC1")
+plot(hclust(dist(t(PC.residual.int))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg PC1 +PC2")
+plot(hclust(as.dist(1-cor(as.matrix(PC.residual.int)))),main = "Dendrogram reg PC1+PC2", xlab="Pearson")
+plot(hclust(dist(t(PC.residual.int), method="manhattan")), xlab = "Manhattan", main = "Dendrogram reg PC1 +PC2")
+
+##Regress out PC1 from mean subtracted data
+PC.residual.ms = matrix(nrow= nrow(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]), ncol = ncol(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]))
+rownames(PC.residual.ms) = rownames(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+colnames(PC.residual.ms) = colnames(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+
+sum.pca = prcomp(na.omit(expr_gene[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
+PCSf = sum.pca$rotation
+
+for (i in 1:nrow(expr_gene)) {
+  model= lm(stand[i,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]~ sum.pca$rotation[,1])
+  PC.residual.ms[i,] = resid(model)
+}
+plot(hclust(dist(t(PC.residual.ms))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg PC1 - ms")
+plot(hclust(as.dist(1-cor(as.matrix(PC.residual.ms)))),main = "Dendrogram reg PC1 - ms", xlab="Pearson")
+plot(hclust(dist(t(PC.residual.ms), method="manhattan")), xlab = "Manhattan", main = "Dendrogram reg PC1 - ms")
+
+#Regress out PC1+2 mean subtracted data
+PC1_2.residual.ms = matrix(nrow= nrow(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]), ncol = ncol(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]))
+rownames(PC1_2.residual.ms) = rownames(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+colnames(PC1_2.residual.ms) = colnames(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+
+sum.pca = prcomp(na.omit(expr_gene[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
+PCSf = sum.pca$rotation
+
+for (i in 1:nrow(expr_gene)) {
+  model= lm(stand[i,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]~ sum.pca$rotation[,1:2])
+  PC1_2.residual.ms[i,] = resid(model)
+}
+plot(hclust(dist(t(PC1_2.residual.ms))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg PC1 +PC2 - ms")
+plot(hclust(as.dist(1-cor(as.matrix(PC1_2.residual.ms)))),main = "Dendrogram reg PC1+PC2 - ms", xlab="Pearson")
+plot(hclust(dist(t(PC1_2.residual.ms), method="manhattan")), xlab = "Manhattan", main = "Dendrogram reg PC1 +PC2 - ms")
+
+
+#Regress out PC1-3
+PC1_3.residual = matrix(nrow= nrow(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]), ncol = ncol(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]))
+rownames(PC1_3.residual) = rownames(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+colnames(PC1_3.residual) = colnames(expr_gene[,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)])
+
+sum.pca = prcomp(na.omit(expr_gene[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
+PCSf = sum.pca$rotation
+
+for (i in 1:nrow(expr_gene)) {
+  model= lm(expr_gene[i,grep ("LCL|Fib", colnames(expr_quant.all),invert=T)]~ sum.pca$rotation[,1:2])
+  PC1_3.residual[i,] = resid(model)
+}
+plot(hclust(dist(t(PC1_3.residual))), xlab = "hclust/Euclidean distance", main = "Dendrogram reg PC1-3")
+plot(hclust(as.dist(1-cor(as.matrix(PC1_3.residual)))),main = "Dendrogram reg PC1-3", xlab="Pearson")
+plot(hclust(dist(t(PC1_3.residual), method="manhattan")), xlab = "Manhattan", main = "Dendrogram reg PC1-3")
+
 
 ##Subset randomly down to three individuals
 ipsc_expr = expr_gene[,grep ("LCL|Fib" , colnames(expr_gene), invert = T)]
