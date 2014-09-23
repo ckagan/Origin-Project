@@ -8,8 +8,26 @@ data = c('YGilad-CK-Aug23-14-ProbeLevelData-NotNormalized-NoBGSubtracted-FinalRe
 ##Extract raw data from lumi file and preparing for removing bad probes:
 data.lumi = lumiR.batch(data, lib.mapping=NULL, convertNuID=F,annotationColumn=c('ACCESSION', 'SYMBOL', 'PROBE_SEQUENCE', 'PROBE_START', 'CHROMOSOME', 'PROBE_CHR_ORIENTATION', 'PROBE_COORDINATES', 'DEFINITION','PROBE_ID'))
 
+###Remove Probes
+all.probes = data.lumi@featureData[[5]]
+goodprobes= read.table('HT-12v4_Probes_inhg19EnsemblGenes_NoCEUHapMapSNPs_Stranded.txt', header=T)
+probes = goodprobes$probeID
+## Convert from factor to character
+probes = as.character(goodprobes$probeID)
+cleanprobes = which(all.probes %in% probes)
+data.lumi.clean = data.lumi[cleanprobes,]
+head(data.lumi@featureData[[5]])
+head(data.lumi.clean@featureData[[5]])
+
+#Add in sample names
+samplenames = read.table('covar.txt', header=T, sep ='\t')
+#Re-order samplenames based on array location
+samplenames = samplenames[order(samplenames$Order),]
+sampleNames(data.lumi.clean) = samplenames$Name
+
+
 #Get QC Data
-summary(data.lumi, 'QC')
+summary(data.lumi.clean, 'QC')
 
 #Past output into excel and create a file called lumiQC
 #Sample  mean standard.deviation detection.rate.0.01. distance.to.sample.mean
@@ -18,26 +36,30 @@ summary(data.lumi, 'QC')
 
 #Look at QC based on cell type
 qcdata = read.table('lumiQC.txt', header=T, as.is=T, sep='\t')
-samplenames = read.table('covar.txt', header=T, sep ='\t')
+
 
 boxplot(qcdata$mean~samplenames$Indiv, main = 'Mean Probe Intensity by Individual')
 boxplot(qcdata$mean~samplenames$Batch, main = 'Mean Probe Intensity by Array')
-boxplot(qcdata$mean~samplenames$MEF, main = 'Mean Probe Intensity by MEF Batch')
+boxplot(qcdata$mean~samplenames$Sex, main = 'Mean Probe Intensity by Sex')
 boxplot(qcdata$mean~samplenames$Type, main = 'Mean Probe Intensity by Cell Type')
 
 ### NORMALIZATION: log2 stabilized and quantile normalization ###
-data.norm.all <- lumiExpresso(data.lumi, bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
+data.norm.all <- lumiExpresso(data.lumi.clean, bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
+sampleNames(data.norm.all) = samplenames$Name
+
 
 ##Normalize by cell type
+ipscsubset = grep ("LCL|Fib", samplenames$Name, invert=T)
+lclsubset = grep ("LCL", samplenames$Name)
+fibsubset = grep ("Fib", samplenames$Name)
+
 data.norm.ipsc = lumiExpresso(data.lumi[, ipscsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
 summary(data.norm.ipsc, 'QC')
 data.norm.fib = lumiExpresso(data.lumi[, fibsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
-summary(data.norm.fib, 'QC')
 data.norm.lcl = lumiExpresso(data.lumi[, lclsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
-summary(data.norm.lcl, 'QC')
-data.norm.all = combine(data.norm.ipsc,data.norm.fib,data.norm.lcl)
+data.norm.comb = combine(data.norm.ipsc,data.norm.fib,data.norm.lcl)
 sampleorder = c(as.character(samplenames[ipscsubset,3]),as.character(samplenames[fibsubset,3]),as.character(samplenames[lclsubset,3]))
-colnames(data.norm.all) = sampleorder
+colnames(data.norm.comb) = sampleorder
 
 show(data.norm.all)
 #QC
@@ -54,6 +76,21 @@ summary(data.norm.all, 'QC')
 #standard deviation        1.2430   1.2430  1.2430   1.2430   1.2430  1.2430  1.2430  1.243  1.2430  1.2430  1.2430  1.2430
 #detection rate(0.01)      0.3619   0.3296  0.3807   0.3292   0.3382  0.3848  0.3582  0.363  0.3656  0.3587  0.3666  0.3534
 #distance to sample mean 112.9000 107.9000 42.4700 109.7000 111.8000 42.7200 45.2900 48.500 42.9400 42.6400 45.7400 44.4300
+
+out = summary(data.norm.comb, 'QC')
+
+##Look at plots of array data (boxplot, density, etc) :
+plot(data.lumi.clean, what='boxplot', main= "Boxplot of microarray density before normalization")
+plot(data.lumi.clean, what='density', main= "Density plot of intensity")
+plot(data.norm.all, what='density', main = "Density plot of intensity - Normalized ")
+plot(data.norm.comb, what='density')
+plot(data.norm.all, what='boxplot', main = "Normalized together")
+plot(data.norm.comb, what = 'boxplot', main = "Normalized by cell type")
+plot(data.norm.all, what='density')
+
+##Check that replicates are most related
+plot(data.norm.all, what='sampleRelation')
+
 
 #Subset data by cell type and look for detection in at least 4 indivduals per subset
 detection = data.norm.all@assayData$detection
@@ -80,14 +117,6 @@ unionunique= unique(union)
 detect.ind.all = sort.int(unionunique)
 #24,480 probes detected 
 
-##Look at plots of array data (boxplot, density, etc) :
-plot(data.lumi, what='boxplot')
-plot(data.lumi, what='density')
-plot(data.norm.all, what='boxplot')
-plot(data.norm.all, what='density')
-
-##Check that replicates are most related
-plot(data.norm.all, what='sampleRelation')
 
 norm_quant.all <- data.norm.all@assayData$exprs
 ###Find the column that is lumi_ID in feature data usually this column
