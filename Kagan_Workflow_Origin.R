@@ -23,7 +23,7 @@ head(data.lumi.clean@featureData[[5]])
 samplenames = read.table('covar.txt', header=T, sep ='\t')
 #Re-order samplenames based on array location
 samplenames = samplenames[order(samplenames$Order),]
-sampleNames(data.lumi.clean) = samplenames$Name
+sampleNames(data.lumi.clean) = samplenames$NewName
 
 
 #Get QC Data
@@ -45,7 +45,7 @@ boxplot(qcdata$mean~samplenames$Type, main = 'Mean Probe Intensity by Cell Type'
 
 ### NORMALIZATION: log2 stabilized and quantile normalization ###
 data.norm.all <- lumiExpresso(data.lumi.clean, bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
-sampleNames(data.norm.all) = samplenames$Name
+sampleNames(data.norm.all) = samplenames$NewName
 
 
 ##Normalize by cell type
@@ -58,7 +58,7 @@ summary(data.norm.ipsc, 'QC')
 data.norm.fib = lumiExpresso(data.lumi[, fibsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
 data.norm.lcl = lumiExpresso(data.lumi[, lclsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
 data.norm.comb = combine(data.norm.ipsc,data.norm.fib,data.norm.lcl)
-sampleorder = c(as.character(samplenames[ipscsubset,3]),as.character(samplenames[fibsubset,3]),as.character(samplenames[lclsubset,3]))
+sampleorder = c(as.character(samplenames[ipscsubset,13]),as.character(samplenames[fibsubset,13]),as.character(samplenames[lclsubset,13]))
 colnames(data.norm.comb) = sampleorder
 
 show(data.norm.all)
@@ -77,7 +77,19 @@ summary(data.norm.all, 'QC')
 #detection rate(0.01)      0.3619   0.3296  0.3807   0.3292   0.3382  0.3848  0.3582  0.363  0.3656  0.3587  0.3666  0.3534
 #distance to sample mean 112.9000 107.9000 42.4700 109.7000 111.8000 42.7200 45.2900 48.500 42.9400 42.6400 45.7400 44.4300
 
-out = summary(data.norm.comb, 'QC')
+qcdata.n = read.table('lumiQC_norm.txt', header=T, as.is=T, sep='\t')
+
+boxplot(qcdata.n$mean~samplenames$Indiv, main = 'Mean Probe Intensity by Individual')
+boxplot(qcdata.n$mean~samplenames$Batch, main = 'Mean Probe Intensity by Array')
+boxplot(qcdata.n$mean~samplenames$Sex, main = 'Mean Probe Intensity by Sex')
+boxplot(qcdata.n$mean~samplenames$Type, main = 'Mean Probe Intensity by Cell Type')
+
+#Distance to sample mean
+boxplot(qcdata.n$distance.to.sample.mean~samplenames$Indiv, main = 'Mean Probe Intensity by Individual')
+boxplot(qcdata.n$distance.to.sample.mean~samplenames$Batch, main = 'Mean Probe Intensity by Array')
+boxplot(qcdata.n$distance.to.sample.mean~samplenames$Sex, main = 'Mean Probe Intensity by Sex')
+boxplot(qcdata.n$distance.to.sample.mean~samplenames$Type, main = 'Distance to Sample Mean by Cell Type')
+
 
 ##Look at plots of array data (boxplot, density, etc) :
 plot(data.lumi.clean, what='boxplot', main= "Boxplot of microarray density before normalization")
@@ -95,27 +107,31 @@ plot(data.norm.all, what='sampleRelation')
 #Subset data by cell type and look for detection in at least 4 indivduals per subset
 detection = data.norm.all@assayData$detection
 #colnames(detection) = sampleorder
-colnames(detection) = samplenames$Name
+colnames(detection) = samplenames$NewName
 
-iPSCdetect = detection[,type %in% selected]
-iPSCdetect = detection[,grep ("LCL|Fib", colnames(detection), invert=T)]
+#iPSCdetect = detection[,type %in% selected]
+#iPSCdetect = detection[,grep ("LCL|Fib", colnames(detection), invert=T)]
+LiPSCdetect = detection[,grep ("L-iPSC", colnames(detection))]
+FiPSCdetect = detection[,grep ("F-iPSC", colnames(detection))]
 LCLdetect = detection[,grep ("LCL", colnames(detection))]
 Fibdetect = detection[,grep ("Fib", colnames(detection))]
 
 #Count the number of probes that have a detection p-value<.05
-iPSCdetected = rowSums(iPSCdetect<0.05)
+LiPSCdetected = rowSums(LiPSCdetect<0.05)
+FiPSCdetected = rowSums(FiPSCdetect<0.05)
 LCLdetected = rowSums(LCLdetect<0.05)
 Fibdetected = rowSums(Fibdetect<0.05)
 
 #Here is where I select the number of indiv that need to have the probe expressed (at least in 4 people), iPSC =22,848, LCL = 15,759, Fib = 16,699
-detect.iPSC <- which(iPSCdetected > 3)
-detect.LCL <- which(LCLdetected > 3)
-detect.Fib <- which(Fibdetected > 3)
+detect.LiPSC <- which(LiPSCdetected > 2)
+detect.LCL <- which(LCLdetected > 2)
+detect.Fib <- which(Fibdetected > 2)
+detect.FiPSC <- which(FiPSCdetected > 2)
 
-union = c(detect.Fib, detect.LCL, detect.iPSC)
+union = c(detect.Fib, detect.LCL, detect.LiPSC, detect.FiPSC)
 unionunique= unique(union)
 detect.ind.all = sort.int(unionunique)
-#24,480 probes detected 
+#17027 probes detected 
 
 
 norm_quant.all <- data.norm.all@assayData$exprs
@@ -127,26 +143,12 @@ rownames(norm_quant.all)=data.norm.all@featureData[[5]]
 #With this threshold 24,480 probes out of 47,315 are expressed
 expr_quant.all <- norm_quant.all[detect.ind.all,]
 #expr_iPSC_quant.all = norm_quant.all[detect.iPSC,]
-expr_quant.all = expr_iPSC_quant.all
+#expr_quant.all = expr_iPSC_quant.all
 
-###Subset expression by Darren's good probes
-goodprobes= read.table('HT-12v4_Probes_inhg19EnsemblGenes_NoCEUHapMapSNPs_Stranded.txt', header=T)
-probes = goodprobes$probeID
-## Convert from factor to character
-probes = as.character(goodprobes$probeID)
-expr_quant.all.clean = expr_quant.all[rownames(expr_quant.all) %in% probes, ]
-expr_iPSC_quant.all.clean = expr_iPSC_quant.all[rownames(expr_iPSC_quant.all) %in% probes, ]
-dim(expr_quant.all.clean)  
-# 16,593 probes of the original 26,953 "good" probes are in this data set
-expr_quant.all= expr_quant.all.clean
-remove(expr_quant.all.clean)
-probelist = rownames(expr_quant.all)
-probelist_iPSC = rownames(expr_iPSC_quant.all.clean)
 
 ##Load in Covariates
 #Converted some factors so they are categorical 
-samplenames = read.table('covar.txt', header=T, sep ='\t')
-colnames(expr_quant.all) = samplenames$Name
+colnames(expr_quant.all) = samplenames$NewName
 #colnames(expr_quant.all) = sampleorder
 #samplenames = read.table('covar_reordered.txt', header=T, sep ='\t')
 
@@ -187,7 +189,7 @@ for(i in 1:dim(expr_quant.all)[1]){
 
 symbolsUniq = unique(gene_names)
 length(symbolsUniq)
-#[1] 12872
+#[1] 13134
 
 
 ## This loop will give the most 3' value for multiple probes within the same gene. In the end you get a simple file with all genes that are expressed with the corresponding mean intensity expression levels across its different probes.
@@ -218,52 +220,26 @@ colnames(expr_gene) = colnames(expr_quant.all)
 
 write.table(expr_gene, 'OriginGeneExpression_Normalized.txt', sep='\t', row.names=T, quote=F)
 
-##Get a gene coord file
-gene_coords = matrix(NA, ncol=8, nrow=length(expr_quant.all))
-
-for(i in 1:dim(expr_quant.all)[1]){
-  selection = which(goodprobes[,4]==row.names(expr_quant.all)[i])
-  gene_coords[i,]= as.matrix(goodprobes[selection,])
-}
-
-gene_map = matrix(NA, ncol=8, nrow=length(unique(gene_names)))
-i=0
-for(gene in unique(gene_names)){
-  i = i+1
-  
-  currRows = which(gene_names == gene)
-  if(length(currRows)>1){
-    if(goodprobes[currRows[1],6]=="+"){
-      keepRow = currRows[which.max(goodprobes[currRows,2])]
-    }
-    else{
-      keepRow = currRows[which.min(goodprobes[currRows,2])]
-    }
-  }
-  else{
-    keepRow=currRows[1]
-  }
-  gene_map[i,] = gene_coords[keepRow,1:8]
-  
-} 
-colnames(gene_map) = colnames(goodprobes)
-chr.gene = gene_map[,c(8,1)]
-
-#write.table(gene_map, 'OriginGeneCoords.txt', quote=F, sep ='\t', row.names=F)
-
-
 ####Data Analysis####
 
 #To use Nick's dendogram script
 #First generate the chr file
-probeinfolist = cbind(goodprobes$chr, as.character(goodprobes[,4]))
+probeinfolist = cbind(goodprobes$chr, as.character(goodprobes[,4]),as.character(goodprobes[,8]))
 probelist = rownames(expr_quant.all)
+genelist = rownames(expr_gene)
 probelist = as.matrix(probelist)
+genelist = as.matrix(genelist)
 colnames(probelist) = c("ILMN")
-colnames(probeinfolist) = c("Chr", "Probe")
-chrlist = merge(probelist, probeinfolist, by.x = "ILMN", by.y = "Probe", all.x = T, all.y = F, sort=F)
-chrfinal = as.matrix(chrlist[,2])
-hist(as.numeric(chrfinal))
+colnames(genelist) = c("GeneID")
+colnames(probeinfolist) = c("Chr", "Probe", "Gene")
+geneinfolist = probeinfolist[,-2]
+chrlist.probe = merge(probelist, probeinfolist, by.x = "ILMN", by.y = "Probe", all.x = T, all.y = F, sort=F)
+chrlist.gene = merge(genelist, geneinfolist, by.x = "GeneID", by.y = "Gene", all.x = T, all.y = F, sort=F)
+chrlist.gene = unique(chrlist.gene)
+
+chrfinal.p = as.matrix(chrlist.probe[,2])
+chrfinal.g = as.matrix(chrlist.gene[,2])
+hist(as.numeric(chrfinal.p))
 
 #If you want mean subtracted and variance divided data
 stan = apply(expr_quant.all,1, function(x) x-mean(x))
@@ -281,26 +257,28 @@ variance.Fib = apply(expr_gene[,grep ("Fib", colnames(expr_gene))],1,var)
 head(expr_gene[,grep ("LCL|Fib", colnames(expr_gene),invert=T)])
 variance.iPSC = apply(expr_gene[,grep ("LCL|Fib", colnames(expr_gene),invert=T)],1,var)
 mean(variance.LCL)
-# 0.03724039
+# 0.03753676
 mean(variance.iPSC)
-# 0.02375778
+# 0.02346646
 mean(variance.Fib)
-# 0.03143111
+# 0.02948094
 
 variance.all = cbind(variance.LCL, variance.Fib, variance.iPSC)
 boxplot(variance.all, ylim = c(-.01,.05))
 var.test(variance.LCL, variance.iPSC)
+var.test(variance.Fib, variance.iPSC)
+var.test(variance.Fib, variance.LCL)
 
 #F test to compare two variances
 
 #data:  variance.LCL and variance.iPSC
-#F = 3.581, num df = 12871, denom df = 12871, p-value < 2.2e-16
+#F = 4.7548, num df = 13133, denom df = 13133, p-value < 2.2e-16
 #alternative hypothesis: true ratio of variances is not equal to 1
 #95 percent confidence interval:
-#  3.459422 3.706946
+#  4.594939 4.920300
 #sample estimates:
 #  ratio of variances 
-#3.581046 
+#4.754838 
 
 library(ggplot2)
 var_all <- data.frame(var=c(variance.LCL, variance.Fib, variance.iPSC), type = rep(c("LCL","Fib", "iPSC"), times=c(length(variance.LCL))))
@@ -316,7 +294,7 @@ avg_beta = expr_gene
 #avg_beta = expr_quant.all
 #avg_beta = stand
 #chr = chrfinal
-chr = chr.gene
+chr = chrfinal.g
 
 #Open pdf
 
@@ -332,7 +310,7 @@ plot(hclust(dist(t(avg_beta[,1:24]), method = "canberra")), xlab = "Canberra", m
 plot(hclust(as.dist(1-cor(as.matrix(avg_beta)))),xlab = "Pearson", main = "Dendrogram using Pearson Correlation")
 
 # Make dendogram of the data without the X chr
-plot(hclust(dist(t(avg_beta[chr[,2] != "chrX" ,]))), xlab = "hclust/Euclidean distance", main = "Dendrogram w/o X chr")
+plot(hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,])))), xlab = "hclust/Euclidean distance", main = "Dendrogram w/o X chr")
 
 # Make dendogram of iPSCs only
 plot(hclust(dist(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]))), xlab = "", main = "Dendrogram with only iPSCs")
@@ -341,7 +319,7 @@ plot(hclust(dist(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)])
 plot(hclust(as.dist(1-cor(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]))), xlab = "", main = "Dendrogram with only iPSCs")
 
 # Make dendogram of iPSCs only w/o X chr
-plot(hclust(dist(t(avg_beta[chr[,2] != "chrX" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][,1:16]))), xlab = "", main = "Dendrogram with only iPSCs, w/o X chr")
+plot(hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][,1:16])))), xlab = "", main = "Dendrogram with only iPSCs, w/o X chr")
 
 
 # Make heatmap of the data
@@ -390,7 +368,7 @@ Leg = samplenames$Deriv
 x.pca = prcomp(na.omit(avg_beta), scale = T, center = T)
 x.pca.sum = summary(x.pca)
 plot(x.pca$rotation[,1], x.pca$rotation[,2], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',x.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
-plot(x.pca$rotation[,2], x.pca$rotation[,3], xlab = paste('PC2 (',x.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',x.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+plot(x.pca$rotation[,2], x.pca$rotation[,3], xlab = paste('PC2 (',x.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',x.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 all data", col = Leg, pch = 20); legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
 
 ipsc.pca = prcomp(na.omit(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
 ipsc.pca.sum = summary(ipsc.pca)
@@ -401,13 +379,12 @@ pdf(file = "PCA iPSC only.pdf")
 rem = grep ("LCL|Fib" , samplenames$Name)
 samplenames.ipsc = samplenames[-rem,]
 
-ipsc_only_leg = c("red", "blue", "orange", "black", "blue", "black", "red", "orange", "blue", "red", "blue", "orange", "red", "black", "orange", "black")
+#ipsc_only_leg = c("red", "blue", "orange", "black", "blue", "black", "red", "orange", "blue", "red", "blue", "orange", "red", "black", "orange", "black")
 
-ipsc_only_shape =  c(18, 20,20,20,20,20,20,18, 20,20,18,20,20,20,20,18)
+#ipsc_only_shape =  c(18, 20,20,20,20,20,20,18, 20,20,18,20,20,20,20,18)
 
-plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,2], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
-
-
+plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,2], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 iPSC only", col = samplenames.ipsc$Indiv, pch = samplenames.ipsc$Deriv)
+#plot(ipsc.pca$rotation[,2], ipsc.pca$rotation[,3], xlab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
 plot(ipsc.pca$rotation[,2], ipsc.pca$rotation[,3], xlab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
 
 
@@ -881,34 +858,97 @@ boxplot2(var.m~varorder, main = "Variance of individuals after regressing Pluri 
 beeswarm(var.m~varorder,add=T, col=col.box, vertical=T,pch=20)
 
 ###### Irene venn diagram code
-library(VennDiagram, lib="~/R_libs")
+library(VennDiagram)
 
-make.venn.pair <- function(geneset1, geneset2, prefix, geneset1.label, geneset2.label,universe){
-  pdf(file=paste(prefix, ".pdf", sep=""), width=7, height=7)
-  venn.placeholder <- draw.pairwise.venn(length(geneset1),length(geneset2), length(which(geneset1 %in% geneset2) == TRUE), c(geneset1.label, geneset2.label), fill=c("goldenrod", "plum4"), alpha=c(0.5, 0.5),col=NA, euler.d=T)
-  complement.size <- dim(universe)[1] - length(geneset1) - length(geneset2) + length(which(geneset1 %in% geneset2) == TRUE)
-  grid.text(paste(complement.size, " not DE\nin either", sep=""), x=0.1, y=0.1)
-  dev.off()
+probes <- data.frame(rownames(iPSC_DMR))
+names(probes) <- "probes"
+
+make.venn.quad <- function(geneset1, geneset2, geneset3, geneset4, geneset1.label, geneset2.label, geneset3.label, geneset4.label, univ){
+  univ$g1 <- univ$probes %in% geneset1
+  univ$g2 <- univ$probes %in% geneset2
+  univ$g3 <- univ$probes %in% geneset3 
+  univ$g4 <- univ$probes %in% geneset4 
+  #pdf(file=paste(prefix, ".pdf", sep=""), width=7, height=7)
+  venn.placeholder <- draw.quad.venn(length(geneset1),length(geneset2), length(geneset3), length(geneset4), dim(univ[univ$g1 == T & univ$g2 == T , ])[1], dim(univ[univ$g1 == T & univ$g3 == T , ])[1], dim(univ[univ$g1 == T & univ$g4 == T , ])[1], dim(univ[univ$g2 == T & univ$g3 == T , ])[1], dim(univ[univ$g2 == T & univ$g4 == T , ])[1], dim(univ[univ$g3 == T & univ$g4 == T , ])[1], dim(univ[univ$g1 == T & univ$g2 == T & univ$g3 == T , ])[1], dim(univ[univ$g1 == T & univ$g2 == T & univ$g4 == T , ])[1], dim(univ[univ$g1 == T & univ$g3 == T & univ$g4 == T , ])[1], dim(univ[univ$g2 == T & univ$g3 == T & univ$g4 == T , ])[1],  dim(univ[univ$g1 == T & univ$g2 == T & univ$g3 == T & univ$g4 == T , ])[1], c(geneset1.label, geneset2.label, geneset3.label, geneset4.label), fill=c("goldenrod", "plum4", "steelblue3", "darkolivegreen3"), alpha=c(0.5, 0.5, 0.5, 0.5),col=NA, euler.d=T)
+  complement.size <- dim(univ[univ$g1 == F & univ$g2 == F & univ$g3 == F & univ$g4 == F , ])[1]
+  grid.text(paste(complement.size, " not DE in any", sep=""), x=0.2, y=0.08)
+  #dev.off()
 }
 
-make.venn.pair(ran.array.ipsc[ran.array.ipsc$adj.P.Val < 0.01,]$genes, ran.array.ipsc[ran.array.ipsc$DE.liver > 10,]$genes, "de_ipsc_vs_liver_2008", "DE iPSC\n FDR 1%", "DE liver,\nBlekhman 2008\n FDR 0.6%", ran.array.ipsc)
-make.venn.pair(ran.array.ipsc[ran.array.ipsc$adj.P.Val < 0.01,]$genes, ran.array.ipsc[ran.array.ipsc$DE.heart > 10,]$genes, "de_ipsc_vs_heart_2008", "DE iPSC\n FDR 1%", "DE heart,\nBlekhman 2008\n FDR 0.6%", ran.array.ipsc)
-make.venn.pair(ran.array.ipsc[ran.array.ipsc$adj.P.Val < 0.01,]$genes, ran.array.ipsc[ran.array.ipsc$DE.kidney > 10,]$genes, "de_ipsc_vs_kidney_2008", "DE iPSC\n FDR 1%", "DE kidney,\nBlekhman 2008\n FDR 0.6%", ran.array.ipsc)
+dev.off()
+# Make venn of full
+make.venn.quad(rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ]), rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ]), rownames(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , ]), rownames(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ]), paste("DEs iPSC", dim(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ])[1]), paste("DEs Origins", dim(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ])[1]), paste("DEs LCLs", dim(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , ])[1]), paste("DEs Fibs", dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ])[1]), probes)
 
-make.venn.pair(ran.exprs.ipsc[ran.exprs.ipsc$adj.P.Val < 0.01,]$genes, ran.exprs.ipsc[ran.exprs.ipsc$deHC == T,]$genes, "de_ipsc_vs_liver_2010", "DE iPSC\n FDR 1%", "DE liver,\nBlekhman 2010\n FDR 5%", ran.exprs.ipsc)
+################## Varience explained
+origin_type= samplenames.ipsc$Deriv
+ind = samplenames.ipsc$Indiv
 
+var.resid.err = matrix(ncol = 1, nrow = dim(meth.final)[1])
+var.origin = matrix(ncol = 1, nrow = dim(meth.final)[1])
+var.ind = matrix(ncol = 1, nrow = dim(meth.final)[1])
 
-
-make.venn.triple <- function(geneset1, geneset2, geneset3, prefix, geneset1.label, geneset2.label, geneset3.label, universe){
-  universe$g1 <- universe$genes %in% geneset1
-  universe$g2 <- universe$genes %in% geneset2
-  universe$g3 <- universe$genes %in% geneset3
-  pdf(file=paste(prefix, ".pdf", sep=""), width=7, height=7)
-  venn.placeholder <- draw.triple.venn(length(geneset1), length(geneset2), length(geneset3), dim(universe[universe$g1 == T & universe$g2 == T,])[1], dim(universe[universe$g2 == T & universe$g3 == T,])[1], dim(universe[universe$g1 == T & universe$g3 == T,])[1], dim(universe[universe$g1 == T & universe$g2 == T & universe$g3 == T,])[1], c(geneset1.label, geneset2.label, geneset3.label), fill=c("goldenrod", "plum4", "steelblue3"), alpha=c(0.5, 0.5, 0.5),col=NA, euler.d=T)
-  complement.size <- dim(universe[universe$g1 == F & universe$g2 == F & universe$g3 == F,][1])
-  grid.text(paste(complement.size, " not DE\nin any", sep=""), x=0.1, y=0.1)
-  dev.off()
+for (i in 1:dim(meth.final)[1]){
+  #for(i in 1:100){
+  tmp <- lm(unlist(meth.final[,grep ("LCL|Fib" , colnames(meth.final), invert = T)][i,]) ~ ind + origin_type)
+  var.ind[i] <- anova(tmp)[1,2]/sum(anova(tmp)[,2])
+  var.origin[i] <- anova(tmp)[2,2]/sum(anova(tmp)[,2])
+  var.resid.err[i] <- anova(tmp)[3,2]/sum(anova(tmp)[,2])
 }
 
+var.in.or = cbind(var.ind, var.origin, var.resid.err)
+boxplot(var.in.or, main = "Proportion of Variance Explained", xlab = "ind, origin, residual")
+most.var.in.or = var.in.or[var.in.or[,3] < .5 , ]
+boxplot(most.var.in.or, main = "Error less than 50%", xlab = "ind, origin, residual")
+most.var.in.or = var.in.or[var.in.or[,3] < .4 , ]
+boxplot(most.var.in.or, main = "Error less than 40%", xlab = "ind, origin, residual")
+most.var.in.or = var.in.or[var.in.or[,3] < .3 , ]
+boxplot(most.var.in.or, main = "Error less than 30%", xlab = "ind, origin, residual")
 
-make.venn.triple(ran.array.ipsc[ran.array.ipsc$DE.kidney > 10,]$genes, ran.array.ipsc[ran.array.ipsc$DE.heart > 10,]$genes, ran.array.ipsc[ran.array.ipsc$DE.liver > 10,]$genes, "de_triple_blekhman_2008", "DE Kidney", "DE Heart", "DE Liver", ran.array.ipsc)
+var.resid.err.mvp = matrix(ncol = 1, nrow = 1000)
+var.origin.mvp = matrix(ncol = 1, nrow = 1000)
+var.ind.mvp = matrix(ncol = 1, nrow = 1000)
+#for (i in 1:dim(most.variable.iPSC.probes)[1]){
+for(i in 1:1000){
+  tmp <- lm(unlist(most.variable.iPSC.probes[i,]) ~ ind + origin_type)
+  var.ind.mvp[i] <- anova(tmp)[1,2]/sum(anova(tmp)[,2])
+  var.origin.mvp[i] <- anova(tmp)[2,2]/sum(anova(tmp)[,2])
+  var.resid.err.mvp[i] <- anova(tmp)[3,2]/sum(anova(tmp)[,2])
+}
+
+boxplot(cbind(var.ind.mvp, var.origin.mvp, var.resid.err.mvp), main = "1,000 most variable probes", xlab = "ind, origin, residual")
+dev.off()
+
+
+##Get a gene coord file
+gene_coords = matrix(NA, ncol=8, nrow=length(expr_quant.all))
+
+for(i in 1:dim(expr_quant.all)[1]){
+  selection = which(goodprobes[,4]==row.names(expr_quant.all)[i])
+  gene_coords[i,]= as.matrix(goodprobes[selection,])
+}
+
+gene_map = matrix(NA, ncol=8, nrow=length(unique(gene_names)))
+i=0
+for(gene in unique(gene_names)){
+  i = i+1
+  
+  currRows = which(gene_names == gene)
+  if(length(currRows)>1){
+    if(goodprobes[currRows[1],6]=="+"){
+      keepRow = currRows[which.max(goodprobes[currRows,2])]
+    }
+    else{
+      keepRow = currRows[which.min(goodprobes[currRows,2])]
+    }
+  }
+  else{
+    keepRow=currRows[1]
+  }
+  gene_map[i,] = gene_coords[keepRow,1:8]
+  
+} 
+colnames(gene_map) = colnames(goodprobes)
+chr.gene = gene_map[,c(8,1)]
+
+write.table(gene_map, 'OriginGeneCoords.txt', quote=F, sep ='\t', row.names=F)
+
