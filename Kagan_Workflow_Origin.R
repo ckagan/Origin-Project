@@ -1,6 +1,6 @@
 ##Load lumi
 library(lumi)
-setwd("C:/Users/Courtney/Dropbox/LCL-iPSC/Origin/Array")
+setwd("C:/Users/Courtney/Dropbox/LCL-iPSC/Origin/")
 
 ##Create object with name of data file:
 data = c('YGilad-CK-Aug23-14-ProbeLevelData-NotNormalized-NoBGSubtracted-FinalReport.txt')
@@ -323,7 +323,7 @@ plot(hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,grep ("LCL|Fib" , 
 
 
 # Make heatmap of the data
-heatmap(cor(as.matrix(avg_beta[,1:24]), use = "complete"),main="Gene expression correlation",)
+heatmap.2(cor(as.matrix(avg_beta[,1:24]), use = "complete"),main="Gene expression correlation",)
 
 dev.off()
 
@@ -513,6 +513,57 @@ dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ])
 write.table(LCL_vs_Fibs,'DE_LCLvFib.txt', quote=F, sep = '\t')
 write.table(LCLs_vs_iPSC.L,'DE_LCLviPSC.txt', quote=F, sep = '\t')
 write.table(Fibs_vs_iPSC.F,'DE_FibviPSC.txt', quote=F, sep = '\t')
+
+###DE Analysis Code#####
+##By individual
+library(limma)
+
+meth.final = expr_gene
+iPSC = meth.final[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]
+iPSC_noX = iPSC[chr[,1] != "23" ,]
+
+
+labs.ind = as.character(samplenames.ipsc$Indiv)
+
+design.ind <-(model.matrix(~0+labs.ind))
+
+colnames(design.ind) <- c("ind1", "ind2", "ind3", "ind4")
+
+fit.ind  <- lmFit(iPSC_noX, design.ind)
+fit.ind <- eBayes(fit.ind)
+
+cm.ind <- makeContrasts(
+  X1V2 = ind1-ind2,
+  X1V3 = ind1-ind3,
+  X1V4 = ind1-ind4,
+  X2V3 = ind2-ind3,
+  X2V4 = ind2-ind4,
+  X3V4 = ind3-ind4,
+  levels=design.ind)
+
+fit.ind2 <- contrasts.fit(fit.ind, cm.ind)
+fit.ind2 <-eBayes(fit.ind2)
+
+X1V2 = topTable(fit.ind2, coef=1, adjust="BH", number=Inf, sort.by="p")
+X1V3 = topTable(fit.ind2, coef=2, adjust="BH", number=Inf, sort.by="p")
+X1V4 = topTable(fit.ind2, coef=3, adjust="BH", number=Inf, sort.by="p")
+X2V3 = topTable(fit.ind2, coef=4, adjust="BH", number=Inf, sort.by="p")
+X2V4 = topTable(fit.ind2, coef=5, adjust="BH", number=Inf, sort.by="p")
+X3V4 = topTable(fit.ind2, coef=6, adjust="BH", number=Inf, sort.by="p")
+
+dim(X1V2[X1V2$adj.P.Val < 0.01 , ])
+#76 #72 noX
+dim(X1V3[X1V3$adj.P.Val < 0.01 , ])
+#87 #86 noX
+dim(X1V4[X1V4$adj.P.Val < 0.01 , ])
+#77 #69 noX
+dim(X2V3[X2V3$adj.P.Val < 0.01 , ])
+#112 #107 noX
+dim(X2V4[X2V4$adj.P.Val < 0.01 , ])
+#88 #83 noX
+dim(X3V4[X3V4$adj.P.Val < 0.01 , ])
+#119 #110 noX
+
 
 ##Subset out based on Sammy's variance genes##
 sammy= read.table('Variance iPSCs by gene.txt', as.is=T, header=T)
