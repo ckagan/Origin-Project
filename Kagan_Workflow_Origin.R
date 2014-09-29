@@ -46,22 +46,22 @@ boxplot(qcdata$mean~samplenames$Type, main = 'Mean Probe Intensity by Cell Type'
 ### NORMALIZATION: log2 stabilized and quantile normalization ###
 data.norm.all <- lumiExpresso(data.lumi.clean, bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
 sampleNames(data.norm.all) = samplenames$NewName
-
+show(data.norm.all)
 
 ##Normalize by cell type
 ipscsubset = grep ("LCL|Fib", samplenames$Name, invert=T)
 lclsubset = grep ("LCL", samplenames$Name)
 fibsubset = grep ("Fib", samplenames$Name)
 
-data.norm.ipsc = lumiExpresso(data.lumi[, ipscsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
-summary(data.norm.ipsc, 'QC')
-data.norm.fib = lumiExpresso(data.lumi[, fibsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
-data.norm.lcl = lumiExpresso(data.lumi[, lclsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
-data.norm.comb = combine(data.norm.ipsc,data.norm.fib,data.norm.lcl)
-sampleorder = c(as.character(samplenames[ipscsubset,13]),as.character(samplenames[fibsubset,13]),as.character(samplenames[lclsubset,13]))
-colnames(data.norm.comb) = sampleorder
+#If you want to normalize by cell type - do not do for overall analysis
+#data.norm.ipsc = lumiExpresso(data.lumi[, ipscsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
+#summary(data.norm.ipsc, 'QC')
+#data.norm.fib = lumiExpresso(data.lumi[, fibsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
+#data.norm.lcl = lumiExpresso(data.lumi[, lclsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
+#data.norm.comb = combine(data.norm.ipsc,data.norm.fib,data.norm.lcl)
+#sampleorder = c(as.character(samplenames[ipscsubset,13]),as.character(samplenames[fibsubset,13]),as.character(samplenames[lclsubset,13]))
+#colnames(data.norm.comb) = sampleorder
 
-show(data.norm.all)
 #QC
 summary(data.norm.all, 'QC')
 
@@ -84,19 +84,21 @@ boxplot(qcdata.n$mean~samplenames$Batch, main = 'Mean Probe Intensity by Array')
 boxplot(qcdata.n$mean~samplenames$Sex, main = 'Mean Probe Intensity by Sex')
 boxplot(qcdata.n$mean~samplenames$Type, main = 'Mean Probe Intensity by Cell Type')
 
-#Distance to sample mean
-boxplot(qcdata.n$distance.to.sample.mean~samplenames$Indiv, main = 'Mean Probe Intensity by Individual')
-boxplot(qcdata.n$distance.to.sample.mean~samplenames$Batch, main = 'Mean Probe Intensity by Array')
-boxplot(qcdata.n$distance.to.sample.mean~samplenames$Sex, main = 'Mean Probe Intensity by Sex')
-boxplot(qcdata.n$distance.to.sample.mean~samplenames$Type, main = 'Distance to Sample Mean by Cell Type')
+#Distance to sample mean - find new qc summary
+#boxplot(data.norm.all@assayData$exprs~samplenames$Indiv, main = 'Mean Probe Intensity by Individual')
+#boxplot(qcdata.n$distance.to.sample.mean~samplenames$Batch, main = 'Mean Probe Intensity by Array')
+#boxplot(qcdata.n$distance.to.sample.mean~samplenames$Sex, main = 'Mean Probe Intensity by Sex')
+#boxplot(qcdata.n$distance.to.sample.mean~samplenames$Type, main = 'Distance to Sample Mean by Cell Type')
 
 
 ##Look at plots of array data (boxplot, density, etc) :
-plot(data.lumi.clean, what='boxplot', main= "Boxplot of microarray density before normalization")
+pdf(file = "QC_Normalization.pdf")
+boxplot(data.lumi.clean, main= "Pre-normalization")
 plot(data.lumi.clean, what='density', main= "Density plot of intensity")
 plot(data.norm.all, what='density', main = "Density plot of intensity - Normalized ")
 plot(data.norm.comb, what='density')
-plot(data.norm.all, what='boxplot', main = "Normalized together")
+boxplot(data.norm.all, main = "Post-Normalization")
+dev.off()
 plot(data.norm.comb, what = 'boxplot', main = "Normalized by cell type")
 plot(data.norm.all, what='density')
 
@@ -112,27 +114,48 @@ colnames(detection) = samplenames$NewName
 #iPSCdetect = detection[,type %in% selected]
 #iPSCdetect = detection[,grep ("LCL|Fib", colnames(detection), invert=T)]
 LiPSCdetect = detection[,grep ("L-iPSC", colnames(detection))]
+Ind1detect = LiPSCdetect[,grep ("Ind1", colnames(LiPSCdetect))]
+Ind2detect = LiPSCdetect[,grep ("Ind2", colnames(LiPSCdetect))]
+Ind3detect = LiPSCdetect[,grep ("Ind3", colnames(LiPSCdetect))]
+Ind4detect = LiPSCdetect[,grep ("Ind4", colnames(LiPSCdetect))]
 FiPSCdetect = detection[,grep ("F-iPSC", colnames(detection))]
 LCLdetect = detection[,grep ("LCL", colnames(detection))]
 Fibdetect = detection[,grep ("Fib", colnames(detection))]
 
 #Count the number of probes that have a detection p-value<.05
-LiPSCdetected = rowSums(LiPSCdetect<0.05)
+#LiPSCdetected = rowSums(LiPSCdetect<0.05)
+Ind1detected = rowSums(Ind1detect <0.05)
+Ind2detected = rowSums(Ind2detect <0.05)
+Ind3detected = rowSums(Ind3detect <0.05)
+Ind4detected = rowSums(Ind4detect <0.05)
 FiPSCdetected = rowSums(FiPSCdetect<0.05)
 LCLdetected = rowSums(LCLdetect<0.05)
 Fibdetected = rowSums(Fibdetect<0.05)
 
 #Here is where I select the number of indiv that need to have the probe expressed (at least in 4 people), iPSC =22,848, LCL = 15,759, Fib = 16,699
-detect.LiPSC <- which(LiPSCdetected > 2)
+#detect.LiPSC <- which(LiPSCdetected > 2)
+detect.Ind1 = which(Ind1detected > 0)
+detect.Ind2 = which(Ind2detected > 0)
+detect.Ind3 = which(Ind3detected > 0)
+detect.Ind4 = which(Ind4detected > 0)
 detect.LCL <- which(LCLdetected > 2)
 detect.Fib <- which(Fibdetected > 2)
 detect.FiPSC <- which(FiPSCdetected > 2)
 
-union = c(detect.Fib, detect.LCL, detect.LiPSC, detect.FiPSC)
+indiv_union = c(detect.Ind1, detect.Ind2, detect.Ind3, detect.Ind4)
+indiv_union_unique = unique(indiv_union)
+
+indiv_freq = as.data.frame(table(indiv_union))
+Indiv_detected = indiv_freq[which(indiv_freq[,2] >3 ),]
+#write.table(detect.LiPSC, 'ProbesDetected_byIndiv_L-iPSC_test2.txt', quote=F, row.names =F, sep='\t')
+
+detect.LiPSC = as.matrix(Indiv_detected$indiv_union)
+detect.LiPSC = as.integer(detect.LiPSC)
+
+union = c(detect.Fib, detect.LCL, detect.FiPSC, detect.LiPSC)
 unionunique= unique(union)
 detect.ind.all = sort.int(unionunique)
-#17027 probes detected 
-
+#16,352 probes detected 
 
 norm_quant.all <- data.norm.all@assayData$exprs
 ###Find the column that is lumi_ID in feature data usually this column
@@ -189,7 +212,7 @@ for(i in 1:dim(expr_quant.all)[1]){
 
 symbolsUniq = unique(gene_names)
 length(symbolsUniq)
-#[1] 13134
+#[1] 12653
 
 
 ## This loop will give the most 3' value for multiple probes within the same gene. In the end you get a simple file with all genes that are expressed with the corresponding mean intensity expression levels across its different probes.
@@ -236,14 +259,18 @@ geneinfolist = probeinfolist[,-2]
 chrlist.probe = merge(probelist, probeinfolist, by.x = "ILMN", by.y = "Probe", all.x = T, all.y = F, sort=F)
 chrlist.gene = merge(genelist, geneinfolist, by.x = "GeneID", by.y = "Gene", all.x = T, all.y = F, sort=F)
 chrlist.gene = unique(chrlist.gene)
-
 chrfinal.p = as.matrix(chrlist.probe[,2])
 chrfinal.g = as.matrix(chrlist.gene[,2])
-hist(as.numeric(chrfinal.p))
+xchr = chrlist.gene[which(chrlist.gene$Chr ==23 ),]
+#464 X chr genes
+ychr = chrlist.gene[which(chrlist.gene$Chr ==24 ),]
+#8 Y chr genes
+hist(as.numeric(chrfinal.g), breaks = 24, xlim = c(1,24))
+
 
 #If you want mean subtracted and variance divided data
-stan = apply(expr_quant.all,1, function(x) x-mean(x))
-stand = t(stan)
+#stan = apply(expr_quant.all,1, function(x) x-mean(x))
+#stand = t(stan)
 
 #Variance by probe
 variance.probe.LCL = apply(expr_quant.all[,grep ("LCL", colnames(expr_quant.all))],1,var)
@@ -257,32 +284,32 @@ variance.Fib = apply(expr_gene[,grep ("Fib", colnames(expr_gene))],1,var)
 head(expr_gene[,grep ("LCL|Fib", colnames(expr_gene),invert=T)])
 variance.iPSC = apply(expr_gene[,grep ("LCL|Fib", colnames(expr_gene),invert=T)],1,var)
 mean(variance.LCL)
-# 0.03753676
+# 0.03848856
 mean(variance.iPSC)
-# 0.02346646
+# 0.02333078
 mean(variance.Fib)
-# 0.02948094
+# 0.03014967
 
 variance.all = cbind(variance.LCL, variance.Fib, variance.iPSC)
-boxplot(variance.all, ylim = c(-.01,.05))
+boxplot(variance.all)#, ylim = c(-.01,.15))
+write.table(variance.all, 'Variance by cell type.txt', quote=F, sep='\t')
 var.test(variance.LCL, variance.iPSC)
 var.test(variance.Fib, variance.iPSC)
 var.test(variance.Fib, variance.LCL)
 
 #F test to compare two variances
 
-#data:  variance.LCL and variance.iPSC
-#F = 4.7548, num df = 13133, denom df = 13133, p-value < 2.2e-16
+#F = 7.1898, num df = 12652, denom df = 12652, p-value < 2.2e-16
 #alternative hypothesis: true ratio of variances is not equal to 1
 #95 percent confidence interval:
-#  4.594939 4.920300
+#  6.943582 7.444833
 #sample estimates:
 #  ratio of variances 
-#4.754838 
+#7.189841 
 
 library(ggplot2)
 var_all <- data.frame(var=c(variance.LCL, variance.Fib, variance.iPSC), type = rep(c("LCL","Fib", "iPSC"), times=c(length(variance.LCL))))
-ggplot(var_all, aes(x=var, fill=type)) + geom_density(alpha=0.1) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
+ggplot(var_all, aes(x=var, fill=type)) + geom_density(alpha=0.09) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
 
 var_LCL <- data.frame(var=c(variance.LCL), type = rep(c("LCL"), times=c(length(variance.LCL))))
 ggplot(var_LCL, aes(x=var, fill=type)) + geom_density(alpha=0.5) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
@@ -298,19 +325,59 @@ chr = chrfinal.g
 
 #Open pdf
 
-pdf(file = "heatmap_dendrogram.pdf")
+pdf(file = "Dendrograms.pdf")
 
 # Make dendogram of the data
-plot(hclust(dist(t(avg_beta[,1:24]))), xlab = "hclust/Euclidean distance", main = "Dendrogram")
+labs = c("Ind1 F-iPSC", 
+         "Ind2 L-iPSC C", "Ind3 L-iPSC B", "Ind1 LCL", "Ind4 L-iPSC C", 
+         "Ind2 L-iPSC B", "Ind4 L-iPSC A", "Ind1 Fibroblast", "Ind1 L-iPSC A", 
+         "Ind4 Fibroblast", "Ind2 LCL", "Ind3 F-iPSC", "Ind2 Fibroblast", 
+         "Ind3 LCL", "Ind2 L-iPSC A", "Ind4 LCL", "Ind3 Fibroblast", "Ind1 L-iPSC C", 
+         "Ind2 F-iPSC", "Ind3 L-iPSC A", "Ind1 L-iPSC B", "Ind4 L-iPSC B", 
+         "Ind3 L-iPSC C", "Ind4 F-iPSC")
+cols = c("Navy",
+         "darkorange1",
+         "Black",
+         "ForestGreen",
+         "lightcoral",
+         "darkorange1",
+         "lightcoral",
+         "Brown",
+         "Navy",
+         "Brown",
+         "ForestGreen",
+         "Black",
+         "Brown",
+         "ForestGreen",
+         "darkorange1",
+         "ForestGreen",
+         "Brown",
+         "Navy",
+         "darkorange1",
+         "Black",
+         "Navy",
+         "lightcoral",
+         "Black",
+         "lightcoral")
+#install.packages("ClassDiscovery", repos="http://R-Forge.R-project.org")
+euc = hclust(dist(t(avg_beta[,1:24])))
+plotColoredClusters(euc, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance", line = -1, xlab="", sub="", col.main = "#45ADA8")
 
-plot(hclust(dist(t(avg_beta[,1:24]), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram")
-plot(hclust(dist(t(avg_beta[,1:24]), method = "canberra")), xlab = "Canberra", main = "Dendrogram")
+#plot(hclust(dist(t(avg_beta[,1:24]))), xlab = "hclust/Euclidean distance", main = "Dendrogram")
+#plot(hclust(dist(t(avg_beta[,1:24]), method = "manhattan")), xlab = "Manhattan", main = "Dendrogram")
+#plot(hclust(dist(t(avg_beta[,1:24]), method = "canberra")), xlab = "Canberra", main = "Dendrogram")
 
 #Make dendograms using pearson
-plot(hclust(as.dist(1-cor(as.matrix(avg_beta)))),xlab = "Pearson", main = "Dendrogram using Pearson Correlation")
+pears = hclust(as.dist(1-cor(as.matrix(avg_beta))))
+plotColoredClusters(pears, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Pearson Correlation", line = -1, xlab="", sub="", col.main = "#45ADA8")
+#plot(hclust(as.dist(1-cor(as.matrix(avg_beta)))),xlab = "Pearson", main = "Dendrogram using Pearson Correlation")
 
 # Make dendogram of the data without the X chr
-plot(hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,])))), xlab = "hclust/Euclidean distance", main = "Dendrogram w/o X chr")
+#plot(hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,])))), xlab = "hclust/Euclidean distance", main = "Dendrogram w/o X chr")
+euc_nox = hclust(dist(t(avg_beta[chr[,1] != "23" ,])))
+plotColoredClusters(euc_nox, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance - No X Chromosome", line = -1, xlab="", sub="", col.main = "#45ADA8")
+pears_nox = hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,]))))
+plotColoredClusters(pears_nox, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Peasron Correlation - No X Chromosome", line = -1, xlab="", sub="", col.main = "#45ADA8")
 
 # Make dendogram of iPSCs only
 plot(hclust(dist(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]))), xlab = "", main = "Dendrogram with only iPSCs")
@@ -323,7 +390,10 @@ plot(hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,grep ("LCL|Fib" , 
 
 
 # Make heatmap of the data
-heatmap.2(cor(as.matrix(avg_beta[,1:24]), use = "complete"),main="Gene expression correlation",)
+pdf(file="Heatmaps.pdf")
+library(gplots)
+heatmap.2(cor(as.matrix(avg_beta[,1:24]), use = "complete"), margins=c(7,3),trace="none",main="Gene Expression Correlation", key=T, keysize=1.5,density.info="none",cexCol=0.9, labRow=NA)
+heatmap.2(cor(as.matrix(avg_beta[chr[,1] != "23",grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), use = "complete"), margins=c(7,3),trace="none",main="Gene Expression Correlation \niPSCs Without X", key=T, keysize=1.5,density.info="none",cexCol=0.9, labRow=NA)
 
 dev.off()
 
@@ -368,7 +438,9 @@ Leg = samplenames$Deriv
 x.pca = prcomp(na.omit(avg_beta), scale = T, center = T)
 x.pca.sum = summary(x.pca)
 plot(x.pca$rotation[,1], x.pca$rotation[,2], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',x.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
-plot(x.pca$rotation[,2], x.pca$rotation[,3], xlab = paste('PC2 (',x.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',x.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 all data", col = Leg, pch = 20); legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+plot(x.pca$rotation[,1], x.pca$rotation[,3], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC3 (',x.pca.sum$importance[2,3], ')', sep = ''), main = "PC1/3 all data", col = Leg, pch = 20); legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+plot(x.pca$rotation[,1], x.pca$rotation[,4], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC4 (',x.pca.sum$importance[2,4], ')', sep = ''), main = "PC1/4 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+
 
 ipsc.pca = prcomp(na.omit(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
 ipsc.pca.sum = summary(ipsc.pca)
@@ -471,8 +543,6 @@ library(limma)
 
 #meth.final = expr_quant.all
 meth.final = expr_gene
-# Make heatmap of the data
-heatmap(cor(as.matrix(meth.final), use = "complete"))
 
 labs = c("OF", "OL", "OL", "LCL", "OL", "OL", "OL", "Fib", "OL", "Fib", 
   "LCL", "OF", "Fib", "LCL", "OL", "LCL", "Fib", "OL", "OF", "OL", 
