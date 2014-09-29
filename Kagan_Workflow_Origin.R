@@ -146,7 +146,7 @@ indiv_union = c(detect.Ind1, detect.Ind2, detect.Ind3, detect.Ind4)
 indiv_union_unique = unique(indiv_union)
 
 indiv_freq = as.data.frame(table(indiv_union))
-Indiv_detected = indiv_freq[which(indiv_freq[,2] >3 ),]
+Indiv_detected = indiv_freq[which(indiv_freq[,2] >2 ),]
 #write.table(detect.LiPSC, 'ProbesDetected_byIndiv_L-iPSC_test2.txt', quote=F, row.names =F, sep='\t')
 
 detect.LiPSC = as.matrix(Indiv_detected$indiv_union)
@@ -155,7 +155,7 @@ detect.LiPSC = as.integer(detect.LiPSC)
 union = c(detect.Fib, detect.LCL, detect.FiPSC, detect.LiPSC)
 unionunique= unique(union)
 detect.ind.all = sort.int(unionunique)
-#16,352 probes detected 
+#16,790 probes detected 
 
 norm_quant.all <- data.norm.all@assayData$exprs
 ###Find the column that is lumi_ID in feature data usually this column
@@ -360,6 +360,7 @@ cols = c("Navy",
          "Black",
          "lightcoral")
 #install.packages("ClassDiscovery", repos="http://R-Forge.R-project.org")
+library(ClassDiscovery)
 euc = hclust(dist(t(avg_beta[,1:24])))
 plotColoredClusters(euc, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance", line = -1, xlab="", sub="", col.main = "#45ADA8")
 
@@ -378,6 +379,7 @@ euc_nox = hclust(dist(t(avg_beta[chr[,1] != "23" ,])))
 plotColoredClusters(euc_nox, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance - No X Chromosome", line = -1, xlab="", sub="", col.main = "#45ADA8")
 pears_nox = hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,]))))
 plotColoredClusters(pears_nox, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Peasron Correlation - No X Chromosome", line = -1, xlab="", sub="", col.main = "#45ADA8")
+dev.off()
 
 # Make dendogram of iPSCs only
 plot(hclust(dist(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]))), xlab = "", main = "Dendrogram with only iPSCs")
@@ -451,26 +453,17 @@ pdf(file = "PCA iPSC only.pdf")
 rem = grep ("LCL|Fib" , samplenames$Name)
 samplenames.ipsc = samplenames[-rem,]
 
-#ipsc_only_leg = c("red", "blue", "orange", "black", "blue", "black", "red", "orange", "blue", "red", "blue", "orange", "red", "black", "orange", "black")
+ipsc_only_leg = c("red", "blue", "orange", "black", "blue", "black", "red", "orange", "blue", "red", "blue", "orange", "red", "black", "orange", "black")
+ipsc_only_shape =  c(21, 20,20,20,20,20,20,21, 20,20,21,20,20,20,20,21)
 
-#ipsc_only_shape =  c(18, 20,20,20,20,20,20,18, 20,20,18,20,20,20,20,18)
-
-plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,2], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 iPSC only", col = samplenames.ipsc$Indiv, pch = samplenames.ipsc$Deriv)
-#plot(ipsc.pca$rotation[,2], ipsc.pca$rotation[,3], xlab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
-plot(ipsc.pca$rotation[,2], ipsc.pca$rotation[,3], xlab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC2/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
-
-
-plot(ipsc.pca$rotation[,3], ipsc.pca$rotation[,4], xlab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''),ylab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''), main = "PC3/4 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
-
-
-plot(ipsc.pca$rotation[,4], ipsc.pca$rotation[,5], xlab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''),ylab = paste('PC5 (',ipsc.pca.sum$importance[2,5], ')', sep = ''), main = "PC4/5 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
-
-plot(ipsc.pca$rotation[,5], ipsc.pca$rotation[,6], xlab = paste('PC5 (',ipsc.pca.sum$importance[2,5], ')', sep = ''),ylab = paste('PC6 (',ipsc.pca.sum$importance[2,6], ')', sep = ''), main = "PC5/6 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 18), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,2], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape);legend(x = "bottomleft", pch = c(20, 20, 20, 20, 20, 21), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,3], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC1/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "bottomleft", pch = c(20, 20, 20, 20, 20, 21), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
+plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,4], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''), main = "PC1/4 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "bottomleft", pch = c(20, 20, 20, 20, 20, 21), col = c("red","blue","black","orange", "black","black"), c("0961", "1194", "4280", "8126", "LCL derived", "Fib derived"))
 
 
 dev.off()
 
-covars = list(mef, batch, type,sex,indiv,pluri,novel,der)
+covars = list(batch, type,sex,indiv,pluri,novel,der)
 
 batch.ipsc = samplenames.ipsc$Batch
 mef.ipsc = samplenames.ipsc$MEF
@@ -504,7 +497,7 @@ lmPCA = function(pca, covars, npcs)
 }
 
 pcaresults = lmPCA(x.pca,covars,4)
-rownames(pcaresults) = c("mef","batch", "type","sex","indiv","pluri","novel","der")
+rownames(pcaresults) = c("batch", "type","sex","indiv","pluri","novel","der")
 colnames(pcaresults) = c("PC1 pval", "PC1 adj R sqs","PC2 pval", "PC2 adj R sqs","PC3 pval", "PC3 adj R sqs","PC4 pval", "PC4 adj R sqs")
 
 pcaresults.ipsc = lmPCA(ipsc.pca,covars.ipsc,4)
@@ -583,6 +576,77 @@ dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ])
 write.table(LCL_vs_Fibs,'DE_LCLvFib.txt', quote=F, sep = '\t')
 write.table(LCLs_vs_iPSC.L,'DE_LCLviPSC.txt', quote=F, sep = '\t')
 write.table(Fibs_vs_iPSC.F,'DE_FibviPSC.txt', quote=F, sep = '\t')
+
+hist(iPSC_DMR$P.Value, main = "Distribution of L-iPSC vs F-iPSC DE P-values", xlab= "P-value")
+
+#Do DE with subsets of genes
+LvF = LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , 1]
+LvI = LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , 1]
+FvI = Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , 1]
+LvF_genes = meth.final[ rownames(meth.final) %in% LvF,]
+LvI_genes = meth.final[ rownames(meth.final) %in% LvI,]
+FvI_genes = meth.final[ rownames(meth.final) %in% FvI,]
+
+#Using only LvF genes
+cm3 <- makeContrasts(
+  OLvsOF = OL-OF,
+  levels=design)
+fit  <- lmFit(LvF_genes, design)
+fit <- eBayes(fit)
+fit2 <- contrasts.fit(fit, cm3)
+fit2 <-eBayes(fit2)
+
+iPSC_DMR_LvFgenes <- topTable(fit2, coef=1, adjust="BH", number=Inf, sort.by="p")
+
+#Using only LvI genes
+fit  <- lmFit(LvI_genes, design)
+fit <- eBayes(fit)
+fit2 <- contrasts.fit(fit, cm3)
+fit2 <-eBayes(fit2)
+iPSC_DMR_LvIgenes <- topTable(fit2, coef=1, adjust="BH", number=Inf, sort.by="p")
+
+#Using only FvI genes
+fit  <- lmFit(FvI_genes, design)
+fit <- eBayes(fit)
+fit2 <- contrasts.fit(fit, cm3)
+fit2 <-eBayes(fit2)
+iPSC_DMR_FvIgenes <- topTable(fit2, coef=1, adjust="BH", number=Inf, sort.by="p")
+
+##QQ Plot
+pvals = iPSC_DMR$P.Value
+observed <- sort(pvals)
+lobs <- -(log10(observed))
+
+expected <- c(1:length(observed)) 
+lexp <- -(log10(expected / (length(expected)+1)))
+
+pdf("QQplot.pdf", width=6, height=6)
+plot(c(0,7), c(0,7), col="red", lwd=1, type="l", main = "QQ Plot by DE Gene Subsets",xlab="Expected (-logP)", ylab="Observed (-logP)", xlim=c(0,7), ylim=c(0,7), las=1, xaxs="i", yaxs="i", bty="l")
+points(lexp, lobs, pch=19, cex=.6, col="black") 
+
+pvalsLvF = iPSC_DMR_LvFgenes$P.Value
+observedLvF <- sort(pvalsLvF)
+lobsLvF <- -(log10(observedLvF))
+expectedLvF <- c(1:length(observedLvF)) 
+lexpLvF <- -(log10(expectedLvF / (length(expectedLvF)+1)))
+points(lexpLvF, lobsLvF, pch=19, cex=.6, col="green") 
+
+pvalsLvI = iPSC_DMR_LvIgenes$P.Value
+observedLvI <- sort(pvalsLvI)
+lobsLvI <- -(log10(observedLvI))
+expectedLvI <- c(1:length(observedLvI)) 
+lexpLvI <- -(log10(expectedLvI / (length(expectedLvI)+1)))
+points(lexpLvI, lobsLvI, pch=19, cex=.6, col="cyan3") 
+
+pvalsFvI = iPSC_DMR_FvIgenes$P.Value
+observedFvI <- sort(pvalsFvI)
+lobsFvI <- -(log10(observedFvI))
+expectedFvI <- c(1:length(observedFvI)) 
+lexpFvI <- -(log10(expectedFvI / (length(expectedFvI)+1)))
+points(lexpFvI, lobsFvI, pch=19, cex=.6, col="darkorange") 
+
+legend(x = "topleft", pch = 19, col = c("black", "green", "cyan3", "darkorange"), c("All Genes", "Genes DE LCL v Fib", "Genes DE LCL v L-iPSC", "Genes DE Fib v F-iPSC"))
+dev.off()
 
 ###DE Analysis Code#####
 ##By individual
@@ -998,11 +1062,47 @@ make.venn.quad <- function(geneset1, geneset2, geneset3, geneset4, geneset1.labe
 
 dev.off()
 # Make venn of full
+pdf(file = "VennDiagram_DE.pdf")
 make.venn.quad(rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ]), rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ]), rownames(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , ]), rownames(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ]), paste("DEs iPSC", dim(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ])[1]), paste("DEs Origins", dim(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ])[1]), paste("DEs LCLs", dim(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , ])[1]), paste("DEs Fibs", dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ])[1]), probes)
+dev.off()
+
+##Venn of probe inclusion scheme
+probes <- data.frame(rownames(norm_quant.all))
+names(probes) <- "probes"
+make.venn.quad <- function(geneset1, geneset2, geneset3, geneset4, geneset1.label, geneset2.label, geneset3.label, geneset4.label, univ){
+  univ$g1 <- univ$probes %in% geneset1
+  univ$g2 <- univ$probes %in% geneset2
+  univ$g3 <- univ$probes %in% geneset3 
+  univ$g4 <- univ$probes %in% geneset4 
+  venn.placeholder <- draw.quad.venn(cex = rep(2),cat.cex =rep(1),length(geneset1),length(geneset2), length(geneset3), length(geneset4), dim(univ[univ$g1 == T & univ$g2 == T , ])[1], dim(univ[univ$g1 == T & univ$g3 == T , ])[1], dim(univ[univ$g1 == T & univ$g4 == T , ])[1], dim(univ[univ$g2 == T & univ$g3 == T , ])[1], dim(univ[univ$g2 == T & univ$g4 == T , ])[1], dim(univ[univ$g3 == T & univ$g4 == T , ])[1], dim(univ[univ$g1 == T & univ$g2 == T & univ$g3 == T , ])[1], dim(univ[univ$g1 == T & univ$g2 == T & univ$g4 == T , ])[1], dim(univ[univ$g1 == T & univ$g3 == T & univ$g4 == T , ])[1], dim(univ[univ$g2 == T & univ$g3 == T & univ$g4 == T , ])[1],  dim(univ[univ$g1 == T & univ$g2 == T & univ$g3 == T & univ$g4 == T , ])[1], c(geneset1.label, geneset2.label, geneset3.label, geneset4.label), fill=c("goldenrod", "plum4", "steelblue3", "darkolivegreen3"), alpha=c(0.5, 0.5, 0.5, 0.5),col=NA, euler.d=T)
+  complement.size <- dim(univ[univ$g1 == F & univ$g2 == F & univ$g3 == F & univ$g4 == F , ])[1]
+  grid.text(paste(complement.size, " not detected in any", sep=""), x=0.2, y=0.08)
+  }
+
+dev.off()
+# Make venn of full
+pdf(file = "VennDiagram_ProbeDetection.pdf", width=12.5, height=12)
+make.venn.quad(probes[detect.Fib,], probes[detect.LCL,], probes[detect.FiPSC,], probes[detect.LiPSC,], paste("Detected in Fibroblasts", length(detect.Fib)), paste("Detected in LCLs", length(detect.LCL)), paste("Detected in F-iPSCs", length(detect.FiPSC)), paste("Detected in L-iPSCs", length(detect.LiPSC)), probes)
+dev.off()
+
+
+####### Boxplot of DMPs between L-iPSCs and F-iPSCs ordered by genomic location
+pdf(file = "iPSC_DE.pdf")
+library(beeswarm)
+iPSC_DMR_loc = meth.final[rownames(meth.final) %in% iPSC_DMR[iPSC_DMR$adj.P.Val < .01 ,1] ,]
+boxplot(iPSC_DMR_loc~samplenames$Type, main = "Expression of TSTD1")
+beeswarm(iPSC_DMR_loc~samplenames$Type, add=T, col=2, pwcol = samplenames$Deriv, vertical=T,pch=20)
+legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+
+iPSC_DMR_loc2 = meth.final[rownames(meth.final) %in% iPSC_DMR[2 ,1] ,]
+boxplot(iPSC_DMR_loc2~samplenames$Type, main = "Expression of ZNF876P")
+beeswarm(iPSC_DMR_loc2~samplenames$Type, add=T, col=2, pwcol = samplenames$Deriv, vertical=T,pch=20)
+legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+dev.off()
 
 ################## Varience explained
-origin_type= samplenames.ipsc$Deriv
-ind = samplenames.ipsc$Indiv
+origin_type= as.factor(samplenames.ipsc$Deriv)
+ind = as.factor(samplenames.ipsc$Indiv)
 
 var.resid.err = matrix(ncol = 1, nrow = dim(meth.final)[1])
 var.origin = matrix(ncol = 1, nrow = dim(meth.final)[1])
@@ -1017,26 +1117,49 @@ for (i in 1:dim(meth.final)[1]){
 }
 
 var.in.or = cbind(var.ind, var.origin, var.resid.err)
-boxplot(var.in.or, main = "Proportion of Variance Explained", xlab = "ind, origin, residual")
-most.var.in.or = var.in.or[var.in.or[,3] < .5 , ]
-boxplot(most.var.in.or, main = "Error less than 50%", xlab = "ind, origin, residual")
-most.var.in.or = var.in.or[var.in.or[,3] < .4 , ]
-boxplot(most.var.in.or, main = "Error less than 40%", xlab = "ind, origin, residual")
-most.var.in.or = var.in.or[var.in.or[,3] < .3 , ]
-boxplot(most.var.in.or, main = "Error less than 30%", xlab = "ind, origin, residual")
+#boxplot(var.in.or, main = "Proportion of Variance Explained", xlab = "ind, origin, residual")
+#most.var.in.or = var.in.or[var.in.or[,3] < .5 , ]
+#boxplot(most.var.in.or, main = "Error less than 50%", xlab = "ind, origin, residual")
+#most.var.in.or = var.in.or[var.in.or[,3] < .4 , ]
+#boxplot(most.var.in.or, main = "Error less than 40%", xlab = "ind, origin, residual")
+#most.var.in.or = var.in.or[var.in.or[,3] < .3 , ]
+#boxplot(most.var.in.or, main = "Error less than 30%", xlab = "ind, origin, residual")
 
-var.resid.err.mvp = matrix(ncol = 1, nrow = 1000)
-var.origin.mvp = matrix(ncol = 1, nrow = 1000)
-var.ind.mvp = matrix(ncol = 1, nrow = 1000)
+#var.resid.err.mvp = matrix(ncol = 1, nrow = 1000)
+#var.origin.mvp = matrix(ncol = 1, nrow = 1000)
+#var.ind.mvp = matrix(ncol = 1, nrow = 1000)
 #for (i in 1:dim(most.variable.iPSC.probes)[1]){
-for(i in 1:1000){
-  tmp <- lm(unlist(most.variable.iPSC.probes[i,]) ~ ind + origin_type)
-  var.ind.mvp[i] <- anova(tmp)[1,2]/sum(anova(tmp)[,2])
-  var.origin.mvp[i] <- anova(tmp)[2,2]/sum(anova(tmp)[,2])
-  var.resid.err.mvp[i] <- anova(tmp)[3,2]/sum(anova(tmp)[,2])
-}
+#for(i in 1:1000){
+#  tmp <- lm(unlist(most.variable.iPSC.probes[i,]) ~ ind + origin_type)
+#  var.ind.mvp[i] <- anova(tmp)[1,2]/sum(anova(tmp)[,2])
+#  var.origin.mvp[i] <- anova(tmp)[2,2]/sum(anova(tmp)[,2])
+#  var.resid.err.mvp[i] <- anova(tmp)[3,2]/sum(anova(tmp)[,2])
+#}
 
-boxplot(cbind(var.ind.mvp, var.origin.mvp, var.resid.err.mvp), main = "1,000 most variable probes", xlab = "ind, origin, residual")
+#boxplot(cbind(var.ind.mvp, var.origin.mvp, var.resid.err.mvp), main = "1,000 most variable probes", xlab = "ind, origin, residual")
+#dev.off()
+
+#Create plots to show have variance changes
+ind.median <- c(median(var.in.or[var.in.or[,3] < .1 ,1]), median(var.in.or[var.in.or[,3] < .2 , 1]), median(var.in.or[var.in.or[,3] < .3,  1]), median(var.in.or[var.in.or[,3] < .4 , 1]), median(var.in.or[var.in.or[,3] < .5 ,1]), median(var.in.or[var.in.or[,3] < .6 , 1]), median(var.in.or[var.in.or[,3] < .7 , 1]), median(var.in.or[var.in.or[,3] < .8 , 1]), median(var.in.or[var.in.or[,3] < .9 , 1]), median(var.in.or[,1]))
+ori.median <- c(median(var.in.or[var.in.or[,3] < .1 ,2]), median(var.in.or[var.in.or[,3] < .2 , 2]), median(var.in.or[var.in.or[,3] < .3,  2]), median(var.in.or[var.in.or[,3] < .4 , 2]), median(var.in.or[var.in.or[,3] < .5 ,2]), median(var.in.or[var.in.or[,3] < .6 , 2]), median(var.in.or[var.in.or[,3] < .7 , 2]), median(var.in.or[var.in.or[,3] < .8 , 2]), median(var.in.or[var.in.or[,3] < .9 , 2]), median(var.in.or[,2]))
+ind.list <- list(var.in.or[var.in.or[,3] < .1 ,1], var.in.or[var.in.or[,3] < .2 , 1], var.in.or[var.in.or[,3] < .3,  1], var.in.or[var.in.or[,3] < .4 , 1], var.in.or[var.in.or[,3] < .5 ,1], var.in.or[var.in.or[,3] < .6 , 1], var.in.or[var.in.or[,3] < .7 , 1], var.in.or[var.in.or[,3] < .8 , 1], var.in.or[var.in.or[,3] < .9 , 1], var.in.or[,1])
+ori.list <- list(var.in.or[var.in.or[,3] < .1 ,2], var.in.or[var.in.or[,3] < .2 , 2], var.in.or[var.in.or[,3] < .3,  2], var.in.or[var.in.or[,3] < .4 , 2], var.in.or[var.in.or[,3] < .5 ,2], var.in.or[var.in.or[,3] < .6 , 2], var.in.or[var.in.or[,3] < .7 , 2], var.in.or[var.in.or[,3] < .8 , 2], var.in.or[var.in.or[,3] < .9 , 2], var.in.or[,2])
+#My samples contain no genes where <10% of variance is explained by individual or tissue of origin
+
+pdf(file = "Proportion of Variance_Gene Expression.pdf")
+
+boxplot(var.in.or, xaxt= "n", main = "Proportion of Gene Expression Variance", ylab = "Proportion of Variance Explained")
+boxplot(ylim = c(0,1),ind.list, xaxt= "n",main = "Proportion of Gene Expression Variance Explained by Individual", ylab = "Proportion of Variance Explained by Individual", xlab = "Proportion of Variance Not Explained by Individual or Tissue of Origin")
+axis(1, at=1:10, labels = c("<10%","< 20%","< 30%","< 40%","< 50%","< 60%","< 70%","< 80%","< 90%","< 100%"), cex.axis = .75)
+#axis(side = 2, labels = c("10%", "20%","30%","40%","50%","60%","70%","80%","90%","100%"), cex.axis = .75, lwd = 0)
+
+boxplot(ori.list, xaxt= "n", main = "Proportion of Gene Expression Variance Explained by Tissue of Origin", ylab = "Proportion of Variance Explained by Tissue of Origin", xlab = "Proportion of Variance Not Explained by Individual or Tissue of Origin")
+#axis(side = 2, at=1:10, labels = c("10%", "20%","30%","40%","50%","60%","70%","80%","90%","100%"), cex.axis = .75, lwd = 0)
+
+plot(ind.median, pch = 16, ylim = c(0,1), xaxt= "n", main = "Proportion of Variance Explained by Individual and Tissue of Origin", ylab = "Proportion of Variance Explained", xlab = "Proportion of Variance Not Explained by Individual or Tissue of Origin")
+axis(1, at=1:10, labels = c("< 10%", "< 20%","< 30%","< 40%","< 50%","< 60%","< 70%","< 80%","< 90%","< 100%"), cex.axis = .75)
+points(ori.median, pch = 16, col = "red")
+legend("topright", c("Individual", "Tissue of Origin"), col = c("black", "red"), pch = c(16,16))
 dev.off()
 
 
