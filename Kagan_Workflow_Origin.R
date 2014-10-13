@@ -49,9 +49,9 @@ sampleNames(data.norm.all) = samplenames$NewName
 show(data.norm.all)
 
 ##Normalize by cell type
-ipscsubset = grep ("LCL|Fib", samplenames$Name, invert=T)
-lclsubset = grep ("LCL", samplenames$Name)
-fibsubset = grep ("Fib", samplenames$Name)
+#ipscsubset = grep ("LCL|Fib", samplenames$Name, invert=T)
+#lclsubset = grep ("LCL", samplenames$Name)
+#fibsubset = grep ("Fib", samplenames$Name)
 
 #If you want to normalize by cell type - do not do for overall analysis
 #data.norm.ipsc = lumiExpresso(data.lumi[, ipscsubset], bg.correct=TRUE, bgcorrect.param=list(method='forcePositive'), variance.stabilize=TRUE, varianceStabilize.param = list(method="log2"), normalize=TRUE, normalize.param=list(method="quantile"), QC.evaluation=TRUE, QC.param=list(), verbose=TRUE)
@@ -147,6 +147,10 @@ indiv_union_unique = unique(indiv_union)
 
 indiv_freq = as.data.frame(table(indiv_union))
 Indiv_detected = indiv_freq[which(indiv_freq[,2] >2 ),]
+table(indiv_freq$Freq)
+
+#1     2     3     4 
+#1667  1052   976 14009 
 #write.table(detect.LiPSC, 'ProbesDetected_byIndiv_L-iPSC_test2.txt', quote=F, row.names =F, sep='\t')
 
 detect.LiPSC = as.matrix(Indiv_detected$indiv_union)
@@ -242,11 +246,17 @@ colnames(expr_gene) = colnames(expr_quant.all)
 #colnames(expr_gene) =samplenames$Name
 
 write.table(expr_gene, 'OriginGeneExpression_Normalized.txt', sep='\t', row.names=T, quote=F)
+#expr_gene = read.table('OriginGeneExpression_Normalized.txt', header=T, as.is=T, sep='\t', row.names=1)
+#samplenames = read.table('covar.txt', header=T, sep ='\t')
+#Re-order samplenames based on array location
+#samplenames = samplenames[order(samplenames$Order),]
+#colnames(expr_gene) = samplenames$NewName
 
 ####Data Analysis####
 
 #To use Nick's dendogram script
 #First generate the chr file
+goodprobes= read.table('HT-12v4_Probes_inhg19EnsemblGenes_NoCEUHapMapSNPs_Stranded.txt', header=T)
 probeinfolist = cbind(goodprobes$chr, as.character(goodprobes[,4]),as.character(goodprobes[,8]))
 probelist = rownames(expr_quant.all)
 genelist = rownames(expr_gene)
@@ -266,6 +276,8 @@ xchr = chrlist.gene[which(chrlist.gene$Chr ==23 ),]
 ychr = chrlist.gene[which(chrlist.gene$Chr ==24 ),]
 #8 Y chr genes
 hist(as.numeric(chrfinal.g), breaks = 24, xlim = c(1,24))
+sexgene = c(which(chrlist.gene$Chr ==23 ), which(chrlist.gene$Chr ==24 ))
+expr_gene_nosex = expr_gene[-sexgene,]
 
 
 #If you want mean subtracted and variance divided data
@@ -327,6 +339,14 @@ chr = chrfinal.g
 
 pdf(file = "Dendrograms.pdf")
 
+pdf(file = "Dendrograms_nosex_1k.pdf")
+variance.iPSC = apply(expr_gene_nosex[,grep ("LCL|Fib", colnames(expr_gene_nosex),invert=T)],1,var)
+varall = cbind(expr_gene_nosex, variance.iPSC)
+varall_1k = varall[order(varall$variance.iPSC, decreasing = T),]
+var1k = varall_1k[1:1000,-25]
+
+
+avg_beta = var1k
 # Make dendogram of the data
 labs = c("Ind1 F-iPSC", 
          "Ind2 L-iPSC C", "Ind3 L-iPSC B", "Ind1 LCL", "Ind4 L-iPSC C", 
@@ -563,26 +583,32 @@ LCLs_vs_iPSC.L <- topTable(fit2, coef=2, adjust="BH", number=Inf, sort.by="p")
 Fibs_vs_iPSC.F <- topTable(fit2, coef=3, adjust="BH", number=Inf, sort.by="p")
 LCL_vs_Fibs <- topTable(fit2, coef=4, adjust="BH", number=Inf, sort.by="p")
 
-overlap_iPSC_DMR_Origin_DMRs = iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ][rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 ,]) %in% rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 ,]) , ]
+overlap_iPSC_DMR_Origin_DMRs = iPSC_DMR[iPSC_DMR$adj.P.Val < 0.05 , ][rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.05 ,]) %in% rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 ,]) , ]
 
-dist_of_Ps = iPSC_DMR[rownames(iPSC_DMR) %in% rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ]) , ]
+dist_of_Ps = iPSC_DMR[rownames(iPSC_DMR) %in% rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 , ]) , ]
 
-head(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ])
-dim(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ])
-dim(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ])
-dim(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , ])
-dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ])
+head(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.05 , ])
+dim(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 , ])
+dim(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.05 , ])
+dim(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.05 , ])
+dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.05 , ])
 
-write.table(LCL_vs_Fibs,'DE_LCLvFib.txt', quote=F, sep = '\t')
-write.table(LCLs_vs_iPSC.L,'DE_LCLviPSC.txt', quote=F, sep = '\t')
-write.table(Fibs_vs_iPSC.F,'DE_FibviPSC.txt', quote=F, sep = '\t')
+write.table(LCL_vs_Fibs,'DE_LCLvFib_FDR5.txt', quote=F, sep = '\t')
+write.table(LCLs_vs_iPSC.L,'DE_LCLviPSC_FDR5.txt', quote=F, sep = '\t')
+write.table(Fibs_vs_iPSC.F,'DE_FibviPSC_FDR5.txt', quote=F, sep = '\t')
+write.table(iPSC_DMR, 'DE_F.iPSCvL.iPSC_FDR5.txt', quote=F, sep = "\t")
 
+pdf(file='Histograms.pdf')
 hist(iPSC_DMR$P.Value, main = "Distribution of L-iPSC vs F-iPSC DE P-values", xlab= "P-value")
+hist(LCL_vs_Fibs$P.Value, main = "Distribution of LCL vs Fibroblast DE P-values", xlab= "P-value")
+hist(LCLs_vs_iPSC.L$P.Value, main = "Distribution of L-iPSCs vs LCLs DE P-values", xlab= "P-value")
+hist(Fibs_vs_iPSC.F$P.Value, main = "Distribution of F-iPSC vs Fibroblasts DE P-values", xlab= "P-value")
+dev.off()
 
 #Do DE with subsets of genes
-LvF = LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , 1]
-LvI = LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , 1]
-FvI = Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , 1]
+LvF = LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 , 1]
+LvI = LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.05 , 1]
+FvI = Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.05 , 1]
 LvF_genes = meth.final[ rownames(meth.final) %in% LvF,]
 LvI_genes = meth.final[ rownames(meth.final) %in% LvI,]
 FvI_genes = meth.final[ rownames(meth.final) %in% FvI,]
@@ -620,7 +646,7 @@ lobs <- -(log10(observed))
 expected <- c(1:length(observed)) 
 lexp <- -(log10(expected / (length(expected)+1)))
 
-pdf("QQplot.pdf", width=6, height=6)
+pdf("QQplot_FDRLine_FDR5DE.pdf", width=6, height=6)
 plot(c(0,7), c(0,7), col="red", lwd=1, type="l", main = "QQ Plot by DE Gene Subsets",xlab="Expected (-logP)", ylab="Observed (-logP)", xlim=c(0,7), ylim=c(0,7), las=1, xaxs="i", yaxs="i", bty="l")
 points(lexp, lobs, pch=19, cex=.6, col="black") 
 
@@ -646,6 +672,7 @@ lexpFvI <- -(log10(expectedFvI / (length(expectedFvI)+1)))
 points(lexpFvI, lobsFvI, pch=19, cex=.6, col="darkorange") 
 
 legend(x = "topleft", pch = 19, col = c("black", "green", "cyan3", "darkorange"), c("All Genes", "Genes DE LCL v Fib", "Genes DE LCL v L-iPSC", "Genes DE Fib v F-iPSC"))
+lines(c(0,7), c(log10(.95/.05),(log10(.95/.05)+7)))
 dev.off()
 
 ###DE Analysis Code#####
@@ -1062,8 +1089,8 @@ make.venn.quad <- function(geneset1, geneset2, geneset3, geneset4, geneset1.labe
 
 dev.off()
 # Make venn of full
-pdf(file = "VennDiagram_DE.pdf")
-make.venn.quad(rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ]), rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ]), rownames(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , ]), rownames(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ]), paste("DEs iPSC", dim(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.01 , ])[1]), paste("DEs Origins", dim(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.01 , ])[1]), paste("DEs LCLs", dim(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.01 , ])[1]), paste("DEs Fibs", dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.01 , ])[1]), probes)
+pdf(file = "VennDiagram_DE_FDR5.pdf")
+make.venn.quad(rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.05 , ]), rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 , ]), rownames(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.05 , ]), rownames(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.05 , ]), paste("DEs iPSC", dim(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.05 , ])[1]), paste("DEs Origins", dim(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 , ])[1]), paste("DEs LCLs", dim(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.05 , ])[1]), paste("DEs Fibs", dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.05 , ])[1]), probes)
 dev.off()
 
 ##Venn of probe inclusion scheme
@@ -1101,8 +1128,15 @@ legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LC
 dev.off()
 
 ################## Varience explained
+samplenames = read.table('covar.txt', header=T, sep ='\t')
+#Re-order samplenames based on array location
+samplenames = samplenames[order(samplenames$Order),]
+
+rem = grep ("LCL|Fib" , samplenames$Name)
+samplenames.ipsc = samplenames[-rem,]
 origin_type= as.factor(samplenames.ipsc$Deriv)
 ind = as.factor(samplenames.ipsc$Indiv)
+meth.final = expr_gene_nosex
 
 var.resid.err = matrix(ncol = 1, nrow = dim(meth.final)[1])
 var.origin = matrix(ncol = 1, nrow = dim(meth.final)[1])
@@ -1110,13 +1144,95 @@ var.ind = matrix(ncol = 1, nrow = dim(meth.final)[1])
 
 for (i in 1:dim(meth.final)[1]){
   #for(i in 1:100){
-  tmp <- lm(unlist(meth.final[,grep ("LCL|Fib" , colnames(meth.final), invert = T)][i,]) ~ ind + origin_type)
+    tmp <- lm(unlist(meth.final[,grep ("LCL|Fib" , colnames(meth.final), invert = T)][i,]) ~ ind + origin_type)
   var.ind[i] <- anova(tmp)[1,2]/sum(anova(tmp)[,2])
   var.origin[i] <- anova(tmp)[2,2]/sum(anova(tmp)[,2])
   var.resid.err[i] <- anova(tmp)[3,2]/sum(anova(tmp)[,2])
 }
 
+p.origin = matrix(ncol = 1, nrow = dim(meth.final)[1])
+p.ind = matrix(ncol = 1, nrow = dim(meth.final)[1])
+
+for (i in 1:dim(meth.final)[1]){
+  #for(i in 1:100){
+  tmp <- lm(unlist(meth.final[,grep ("LCL|Fib" , colnames(meth.final), invert = T)][i,]) ~ ind + origin_type)
+  p.ind[i] <- anova(tmp)[1,5]
+  p.origin[i] <- anova(tmp)[2,5]
+  
+}
+hist(p.origin)
+hist(p.ind)
+
 var.in.or = cbind(var.ind, var.origin, var.resid.err)
+
+#Permute data - check each covariate seperatley
+var.resid.err.p = matrix(ncol = 1, nrow = dim(meth.final)[1])
+var.origin.p = matrix(ncol = 1, nrow = dim(meth.final)[1])
+var.ind.p = matrix(ncol = 1, nrow = dim(meth.final)[1])
+
+for (i in 1:dim(meth.final)[1]){
+  #for(i in 1:100){
+  perm = sample(meth.final[,grep ("LCL|Fib" , colnames(meth.final), invert = T)][i,])
+  tmp <- lm(unlist(perm) ~ ind)
+  var.ind.p[i] <- anova(tmp)[1,2]/sum(anova(tmp)[,2])
+  var.resid.err.p[i] <- anova(tmp)[2,2]/sum(anova(tmp)[,2])
+}
+var.in.or.p = cbind(var.ind.p, var.resid.err.p)
+mean(var.ind.p)
+boxplot(var.in.or.p)
+
+var.resid.err = matrix(ncol = 1, nrow = dim(meth.final)[1])
+var.ind = matrix(ncol = 1, nrow = dim(meth.final)[1])
+
+for (i in 1:dim(meth.final)[1]){
+  #for(i in 1:100){
+  tmp <- lm(unlist(meth.final[,grep ("LCL|Fib" , colnames(meth.final), invert = T)][i,]) ~ ind)
+  var.ind[i] <- anova(tmp)[1,2]/sum(anova(tmp)[,2])
+  var.resid.err[i] <- anova(tmp)[2,2]/sum(anova(tmp)[,2])
+}
+
+var.ind.adjr.p = matrix(ncol = 1, nrow = dim(meth.final)[1])
+
+for (i in 1:dim(meth.final)[1]){
+  #for(i in 1:100){
+  perm = sample(meth.final[,grep ("LCL|Fib" , colnames(meth.final), invert = T)][i,])
+  tmp <- lm(unlist(perm) ~ ind)
+  a = summary(tmp)
+  var.ind.adjr.p[i] <- a$adj.r.squared
+}
+
+var.ind.adjr = matrix(ncol = 1, nrow = dim(meth.final)[1])
+
+for (i in 1:dim(meth.final)[1]){
+  #for(i in 1:100){
+  tmp <- lm(unlist(meth.final[,grep ("LCL|Fib" , colnames(meth.final), invert = T)][i,]) ~ ind)
+  a = summary(tmp)
+  var.ind.adjr[i] <- a$adj.r.squared
+}
+
+var.or.adjr = matrix(ncol = 1, nrow = dim(meth.final)[1])
+
+for (i in 1:dim(meth.final)[1]){
+  #for(i in 1:100){
+  tmp <- lm(unlist(meth.final[,grep ("LCL|Fib" , colnames(meth.final), invert = T)][i,]) ~ origin_type)
+  a = summary(tmp)
+  var.or.adjr[i] <- a$adj.r.squared
+}
+
+var.resid.adjr = matrix(ncol = 1, nrow = dim(meth.final)[1])
+for (i in 1:dim(meth.final)[1]){
+   var.resid.adjr[i] <- 1 - var.or.adjr[i] - var.ind.adjr[i]
+}
+
+var.in.or.adjr = cbind(var.ind.adjr,var.or.adjr)
+boxplot(var.in.or.adjr)
+ind.median.adj <- c(median(var.in.or.adjr[var.in.or.adjr[,3] < .1 ,1]), median(var.in.or.adjr[var.in.or.adjr[,3] < .2 , 1]), median(var.in.or.adjr[var.in.or.adjr[,3] < .3,  1]), median(var.in.or.adjr[var.in.or.adjr[,3] < .4 , 1]), median(var.in.or.adjr[var.in.or.adjr[,3] < .5 ,1]), median(var.in.or.adjr[var.in.or.adjr[,3] < .6 , 1]), median(var.in.or.adjr[var.in.or.adjr[,3] < .7 , 1]), median(var.in.or.adjr[var.in.or.adjr[,3] < .8 , 1]), median(var.in.or.adjr[var.in.or.adjr[,3] < .9 , 1]), median(var.in.or.adjr[,1]))
+ori.median.adj <- c(median(var.in.or.adjr[var.in.or.adjr[,3] < .1 ,2]), median(var.in.or.adjr[var.in.or.adjr[,3] < .2 , 2]), median(var.in.or.adjr[var.in.or.adjr[,3] < .3,  2]), median(var.in.or.adjr[var.in.or.adjr[,3] < .4 , 2]), median(var.in.or.adjr[var.in.or.adjr[,3] < .5 ,2]), median(var.in.or.adjr[var.in.or.adjr[,3] < .6 , 2]), median(var.in.or.adjr[var.in.or.adjr[,3] < .7 , 2]), median(var.in.or.adjr[var.in.or.adjr[,3] < .8 , 2]), median(var.in.or.adjr[var.in.or.adjr[,3] < .9 , 2]), median(var.in.or.adjr[,2]))
+plot(ind.median.adj, pch = 16, ylim = c(0,1), xaxt= "n", main = "Proportion of Variance Explained by Individual and Tissue of Origin", ylab = "Proportion of Variance Explained", xlab = "Proportion of Variance Not Explained by Individual or Tissue of Origin")
+axis(1, at=1:10, labels = c("< 10%", "< 20%","< 30%","< 40%","< 50%","< 60%","< 70%","< 80%","< 90%","< 100%"), cex.axis = .75)
+points(ori.median.adj, pch = 16, col = "red")
+legend("topright", c("Individual", "Tissue of Origin"), col = c("black", "red"), pch = c(16,16))
+
 #boxplot(var.in.or, main = "Proportion of Variance Explained", xlab = "ind, origin, residual")
 #most.var.in.or = var.in.or[var.in.or[,3] < .5 , ]
 #boxplot(most.var.in.or, main = "Error less than 50%", xlab = "ind, origin, residual")
