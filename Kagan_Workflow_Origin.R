@@ -10,12 +10,14 @@ data.lumi = lumiR.batch(data, lib.mapping=NULL, convertNuID=F,annotationColumn=c
 
 ###Remove Probes
 all.probes = data.lumi@featureData[[5]]
-goodprobes= read.table('HT-12v4_Probes_inhg19EnsemblGenes_NoCEUHapMapSNPs_Stranded.txt', header=T)
+goodprobes= read.table('ht12_probes_snps_ceu_hg19_af_0.05_map_37.txt', header=T, sep='\t')
+#23,890 probes
 probes = goodprobes$probeID
 ## Convert from factor to character
 probes = as.character(goodprobes$probeID)
 cleanprobes = which(all.probes %in% probes)
 data.lumi.clean = data.lumi[cleanprobes,]
+#23,888 probes
 head(data.lumi@featureData[[5]])
 head(data.lumi.clean@featureData[[5]])
 
@@ -96,10 +98,10 @@ pdf(file = "QC_Normalization.pdf")
 boxplot(data.lumi.clean, main= "Pre-normalization")
 plot(data.lumi.clean, what='density', main= "Density plot of intensity")
 plot(data.norm.all, what='density', main = "Density plot of intensity - Normalized ")
-plot(data.norm.comb, what='density')
+#plot(data.norm.comb, what='density')
 boxplot(data.norm.all, main = "Post-Normalization")
 dev.off()
-plot(data.norm.comb, what = 'boxplot', main = "Normalized by cell type")
+#plot(data.norm.comb, what = 'boxplot', main = "Normalized by cell type")
 plot(data.norm.all, what='density')
 
 ##Check that replicates are most related
@@ -132,7 +134,7 @@ FiPSCdetected = rowSums(FiPSCdetect<0.05)
 LCLdetected = rowSums(LCLdetect<0.05)
 Fibdetected = rowSums(Fibdetect<0.05)
 
-#Here is where I select the number of indiv that need to have the probe expressed (at least in 4 people), iPSC =22,848, LCL = 15,759, Fib = 16,699
+#Here is where I select the number of indiv that need to have the probe expressed (at least in 3 people), iPSC =22,848, LCL = 15,759, Fib = 16,699
 #detect.LiPSC <- which(LiPSCdetected > 2)
 detect.Ind1 = which(Ind1detected > 0)
 detect.Ind2 = which(Ind2detected > 0)
@@ -150,7 +152,7 @@ Indiv_detected = indiv_freq[which(indiv_freq[,2] >2 ),]
 table(indiv_freq$Freq)
 
 #1     2     3     4 
-#1667  1052   976 14009 
+#1406   879   836 12773 
 #write.table(detect.LiPSC, 'ProbesDetected_byIndiv_L-iPSC_test2.txt', quote=F, row.names =F, sep='\t')
 
 detect.LiPSC = as.matrix(Indiv_detected$indiv_union)
@@ -159,7 +161,7 @@ detect.LiPSC = as.integer(detect.LiPSC)
 union = c(detect.Fib, detect.LCL, detect.FiPSC, detect.LiPSC)
 unionunique= unique(union)
 detect.ind.all = sort.int(unionunique)
-#16,790 probes detected 
+#15,293 probes detected 
 
 norm_quant.all <- data.norm.all@assayData$exprs
 ###Find the column that is lumi_ID in feature data usually this column
@@ -208,7 +210,7 @@ novel.num = as.numeric(novel)
 #Looking at just probes expressed in iPSCs
 #expr_quant.all = expr_iPSC_quant.all.clean
 
-## Finding the unique gene names matching probes to gene names using Darren's good probe list
+## Finding the unique gene names matching probes to gene names using the good probe list
 gene_names=c()
 for(i in 1:dim(expr_quant.all)[1]){
   gene_names=c(gene_names,as.vector(goodprobes[as.vector(goodprobes[,4])==row.names(expr_quant.all)[i],8]))
@@ -216,7 +218,7 @@ for(i in 1:dim(expr_quant.all)[1]){
 
 symbolsUniq = unique(gene_names)
 length(symbolsUniq)
-#[1] 12653
+#[1] 11,469
 
 
 ## This loop will give the most 3' value for multiple probes within the same gene. In the end you get a simple file with all genes that are expressed with the corresponding mean intensity expression levels across its different probes.
@@ -256,7 +258,7 @@ write.table(expr_gene, 'OriginGeneExpression_Normalized.txt', sep='\t', row.name
 
 #To use Nick's dendogram script
 #First generate the chr file
-goodprobes= read.table('HT-12v4_Probes_inhg19EnsemblGenes_NoCEUHapMapSNPs_Stranded.txt', header=T)
+goodprobes= read.table('ht12_probes_snps_ceu_hg19_af_0.05_map_37.txt', header=T, sep='\t')
 probeinfolist = cbind(goodprobes$chr, as.character(goodprobes[,4]),as.character(goodprobes[,8]))
 probelist = rownames(expr_quant.all)
 genelist = rownames(expr_gene)
