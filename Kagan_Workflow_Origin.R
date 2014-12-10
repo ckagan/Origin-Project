@@ -269,10 +269,13 @@ colnames(probelist) = c("ILMN")
 colnames(genelist) = c("GeneID")
 colnames(probeinfolist) = c("Chr", "Probe", "Gene")
 geneinfolist = probeinfolist[,-2]
+test = unique(geneinfolist)
 chrlist.gene = merge(genelist, test, by.x = "GeneID", by.y = "Gene", all.x = T, all.y = F, sort=F)
 chrlist.probe = merge(probelist, probeinfolist, by.x = "ILMN", by.y = "Probe", all.x = T, all.y = F, sort=F)
 chrlist.gene = merge(genelist, geneinfolist, by.x = "GeneID", by.y = "Gene", all.x = T, all.y = F, sort=F)
-chrlist.gene = unique(chrlist.gene)
+write.table(chrlist.gene, 'GeneList.txt', sep='\t', row.names=T, quote=F)
+write.table(genelist, 'ActualGeneList.txt', sep='\t', row.names=T, quote=F)
+
 cleangenes = which(chrlist.gene$GeneID %in% genelist)
 clean.chrlist.gene = chrlist.gene[cleangenes,]
 chrfinal.p = as.matrix(chrlist.probe[,2])
