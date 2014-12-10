@@ -96,8 +96,8 @@ boxplot(qcdata.n$mean~samplenames$Type, main = 'Mean Probe Intensity by Cell Typ
 ##Look at plots of array data (boxplot, density, etc) :
 pdf(file = "QC_Normalization.pdf")
 boxplot(data.lumi.clean, main= "Pre-normalization")
-plot(data.lumi.clean, what='density', main= "Density plot of intensity")
-plot(data.norm.all, what='density', main = "Density plot of intensity - Normalized ")
+#plot(data.lumi.clean, what='density', main= "Density plot of intensity")
+#plot(data.norm.all, what='density', main = "Density plot of intensity - Normalized ")
 #plot(data.norm.comb, what='density')
 boxplot(data.norm.all, main = "Post-Normalization")
 dev.off()
@@ -169,7 +169,7 @@ head(data.norm.all@featureData[[5]])
 ##[1] "ILMN_1343291" "ILMN_1343295" "ILMN_1651199" "ILMN_1651209" "ILMN_1651210" "ILMN_1651221"
 ###Convert expr_quant rownames to
 rownames(norm_quant.all)=data.norm.all@featureData[[5]]
-#With this threshold 24,480 probes out of 47,315 are expressed
+#With this threshold 15,293 probes out of 47,315 are expressed
 expr_quant.all <- norm_quant.all[detect.ind.all,]
 #expr_iPSC_quant.all = norm_quant.all[detect.iPSC,]
 #expr_quant.all = expr_iPSC_quant.all
@@ -213,12 +213,13 @@ novel.num = as.numeric(novel)
 ## Finding the unique gene names matching probes to gene names using the good probe list
 gene_names=c()
 for(i in 1:dim(expr_quant.all)[1]){
-  gene_names=c(gene_names,as.vector(goodprobes[as.vector(goodprobes[,4])==row.names(expr_quant.all)[i],8]))
+  gene_names=c(gene_names,as.vector(goodprobes[as.vector(goodprobes[,4])==row.names(expr_quant.all)[i],11]))
 }
 
 symbolsUniq = unique(gene_names)
 length(symbolsUniq)
-#[1] 11,469
+#[1] 11,469 - that have HGNC annotation
+# 11,713 have ENSName
 
 
 ## This loop will give the most 3' value for multiple probes within the same gene. In the end you get a simple file with all genes that are expressed with the corresponding mean intensity expression levels across its different probes.
@@ -259,7 +260,7 @@ write.table(expr_gene, 'OriginGeneExpression_Normalized.txt', sep='\t', row.name
 #To use Nick's dendogram script
 #First generate the chr file
 goodprobes= read.table('ht12_probes_snps_ceu_hg19_af_0.05_map_37.txt', header=T, sep='\t')
-probeinfolist = cbind(goodprobes$chr, as.character(goodprobes[,4]),as.character(goodprobes[,8]))
+probeinfolist = cbind(goodprobes$chr, as.character(goodprobes[,4]),as.character(goodprobes[,11]))
 probelist = rownames(expr_quant.all)
 genelist = rownames(expr_gene)
 probelist = as.matrix(probelist)
@@ -268,18 +269,22 @@ colnames(probelist) = c("ILMN")
 colnames(genelist) = c("GeneID")
 colnames(probeinfolist) = c("Chr", "Probe", "Gene")
 geneinfolist = probeinfolist[,-2]
+chrlist.gene = merge(genelist, test, by.x = "GeneID", by.y = "Gene", all.x = T, all.y = F, sort=F)
 chrlist.probe = merge(probelist, probeinfolist, by.x = "ILMN", by.y = "Probe", all.x = T, all.y = F, sort=F)
 chrlist.gene = merge(genelist, geneinfolist, by.x = "GeneID", by.y = "Gene", all.x = T, all.y = F, sort=F)
 chrlist.gene = unique(chrlist.gene)
+cleangenes = which(chrlist.gene$GeneID %in% genelist)
+clean.chrlist.gene = chrlist.gene[cleangenes,]
 chrfinal.p = as.matrix(chrlist.probe[,2])
-chrfinal.g = as.matrix(chrlist.gene[,2])
+chrfinal.g = as.matrix(clean.chrlist.gene[,2])
 xchr = chrlist.gene[which(chrlist.gene$Chr ==23 ),]
-#464 X chr genes
+#431 X chr genes
 ychr = chrlist.gene[which(chrlist.gene$Chr ==24 ),]
-#8 Y chr genes
+#7 Y chr genes
 hist(as.numeric(chrfinal.g), breaks = 24, xlim = c(1,24))
 sexgene = c(which(chrlist.gene$Chr ==23 ), which(chrlist.gene$Chr ==24 ))
 expr_gene_nosex = expr_gene[-sexgene,]
+# 11,277 genes
 
 
 #If you want mean subtracted and variance divided data
@@ -298,11 +303,11 @@ variance.Fib = apply(expr_gene[,grep ("Fib", colnames(expr_gene))],1,var)
 head(expr_gene[,grep ("LCL|Fib", colnames(expr_gene),invert=T)])
 variance.iPSC = apply(expr_gene[,grep ("LCL|Fib", colnames(expr_gene),invert=T)],1,var)
 mean(variance.LCL)
-# 0.03848856
+# 0.03973149
 mean(variance.iPSC)
-# 0.02333078
+# 0.02424886
 mean(variance.Fib)
-# 0.03014967
+# 0.03112353
 
 variance.all = cbind(variance.LCL, variance.Fib, variance.iPSC)
 boxplot(variance.all)#, ylim = c(-.01,.15))
@@ -313,17 +318,18 @@ var.test(variance.Fib, variance.LCL)
 
 #F test to compare two variances
 
-#F = 7.1898, num df = 12652, denom df = 12652, p-value < 2.2e-16
+#data:  variance.Fib and variance.iPSC
+#F = 3.2088, num df = 11712, denom df = 11712, p-value < 2.2e-16
 #alternative hypothesis: true ratio of variances is not equal to 1
 #95 percent confidence interval:
-#  6.943582 7.444833
+#  3.094661 3.327177
 #sample estimates:
 #  ratio of variances 
-#7.189841 
+#3.208813 
 
 library(ggplot2)
 var_all <- data.frame(var=c(variance.LCL, variance.Fib, variance.iPSC), type = rep(c("LCL","Fib", "iPSC"), times=c(length(variance.LCL))))
-ggplot(var_all, aes(x=var, fill=type)) + geom_density(alpha=0.09) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
+ggplot(var_all, aes(x=var, fill=type)) + geom_density(alpha=0.01) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
 
 var_LCL <- data.frame(var=c(variance.LCL), type = rep(c("LCL"), times=c(length(variance.LCL))))
 ggplot(var_LCL, aes(x=var, fill=type)) + geom_density(alpha=0.5) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
@@ -344,7 +350,7 @@ pdf(file = "Dendrograms.pdf")
 pdf(file = "Dendrograms_nosex_1k.pdf")
 variance.iPSC = apply(expr_gene_nosex[,grep ("LCL|Fib", colnames(expr_gene_nosex),invert=T)],1,var)
 varall = cbind(expr_gene_nosex, variance.iPSC)
-varall_1k = varall[order(varall$variance.iPSC, decreasing = T),]
+varall_1k = varall[order(varall[,25], decreasing = T),]
 var1k = varall_1k[1:1000,-25]
 
 
@@ -397,10 +403,12 @@ plotColoredClusters(pears, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Pearson 
 
 # Make dendogram of the data without the X chr
 #plot(hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,])))), xlab = "hclust/Euclidean distance", main = "Dendrogram w/o X chr")
-euc_nox = hclust(dist(t(avg_beta[chr[,1] != "23" ,])))
-plotColoredClusters(euc_nox, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance - No X Chromosome", line = -1, xlab="", sub="", col.main = "#45ADA8")
-pears_nox = hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,]))))
-plotColoredClusters(pears_nox, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Peasron Correlation - No X Chromosome", line = -1, xlab="", sub="", col.main = "#45ADA8")
+pdf(file = "Dendrograms_nosex.pdf")
+avg_beta = expr_gene_nosex
+euc_nox = hclust(dist(t(avg_beta)))
+plotColoredClusters(euc_nox, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance - No Sex Chromosomes", line = -1, xlab="", sub="", col.main = "#45ADA8")
+pears_nox = hclust(as.dist(1-cor(as.matrix(avg_beta))))
+plotColoredClusters(pears_nox, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Peasron Correlation - No Sex Chromosomes", line = -1, xlab="", sub="", col.main = "#45ADA8")
 dev.off()
 
 # Make dendogram of iPSCs only
@@ -416,8 +424,8 @@ plot(hclust(as.dist(1-cor(as.matrix(avg_beta[chr[,1] != "23" ,grep ("LCL|Fib" , 
 # Make heatmap of the data
 pdf(file="Heatmaps.pdf")
 library(gplots)
-heatmap.2(cor(as.matrix(avg_beta[,1:24]), use = "complete"), margins=c(7,3),trace="none",main="Gene Expression Correlation", key=T, keysize=1.5,density.info="none",cexCol=0.9, labRow=NA)
-heatmap.2(cor(as.matrix(avg_beta[chr[,1] != "23",grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), use = "complete"), margins=c(7,3),trace="none",main="Gene Expression Correlation \niPSCs Without X", key=T, keysize=1.5,density.info="none",cexCol=0.9, labRow=NA)
+heatmap.2(cor(as.matrix(expr_gene[,1:24]), use = "complete"), margins=c(7,3),trace="none",main="Gene Expression Correlation", key=T, keysize=1.5,density.info="none",cexCol=0.9, labRow=NA)
+heatmap.2(cor(as.matrix(expr_gene_nosex[,grep ("LCL|Fib" , colnames(expr_gene_nosex), invert = T)]), use = "complete"), margins=c(7,3),trace="none",main="Gene Expression Correlation \niPSCs Without X", key=T, keysize=1.5,density.info="none",cexCol=0.9, labRow=NA)
 
 dev.off()
 
@@ -608,12 +616,12 @@ hist(Fibs_vs_iPSC.F$P.Value, main = "Distribution of F-iPSC vs Fibroblasts DE P-
 dev.off()
 
 #Do DE with subsets of genes
-LvF = LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 , 1]
-LvI = LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.05 , 1]
-FvI = Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.05 , 1]
-LvF_genes = meth.final[ rownames(meth.final) %in% LvF,]
-LvI_genes = meth.final[ rownames(meth.final) %in% LvI,]
-FvI_genes = meth.final[ rownames(meth.final) %in% FvI,]
+LvF = LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 , 1:2]
+LvI = LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.05 , 1:2]
+FvI = Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.05 , 1:2]
+LvF_genes = meth.final[ rownames(meth.final) %in% rownames(LvF),]
+LvI_genes = meth.final[ rownames(meth.final) %in% rownames(LvI),]
+FvI_genes = meth.final[ rownames(meth.final) %in% rownames(FvI),]
 
 #Using only LvF genes
 cm3 <- makeContrasts(
@@ -1118,16 +1126,11 @@ dev.off()
 ####### Boxplot of DMPs between L-iPSCs and F-iPSCs ordered by genomic location
 pdf(file = "iPSC_DE.pdf")
 library(beeswarm)
-iPSC_DMR_loc = meth.final[rownames(meth.final) %in% iPSC_DMR[iPSC_DMR$adj.P.Val < .01 ,1] ,]
+
+iPSC_DMR_loc = expr_gene[which(rownames(expr_gene) == "TSTD1"),]
 boxplot(iPSC_DMR_loc~samplenames$Type, main = "Expression of TSTD1")
 beeswarm(iPSC_DMR_loc~samplenames$Type, add=T, col=2, pwcol = samplenames$Deriv, vertical=T,pch=20)
 legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
-
-iPSC_DMR_loc2 = meth.final[rownames(meth.final) %in% iPSC_DMR[2 ,1] ,]
-boxplot(iPSC_DMR_loc2~samplenames$Type, main = "Expression of ZNF876P")
-beeswarm(iPSC_DMR_loc2~samplenames$Type, add=T, col=2, pwcol = samplenames$Deriv, vertical=T,pch=20)
-legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
-dev.off()
 
 ################## Varience explained
 samplenames = read.table('covar.txt', header=T, sep ='\t')
