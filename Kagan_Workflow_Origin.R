@@ -385,8 +385,8 @@ dev.off()
 ######### Make heatmap of the data ##################
 pdf(file="Heatmaps.pdf")
 library(gplots)
-heatmap.2(cor(as.matrix(expr_gene[,1:24]), use = "complete"), margins=c(7,3),trace="none",main="Gene Expression Correlation", key=T, keysize=1.5,density.info="none",cexCol=0.9, labRow=NA)
-heatmap.2(cor(as.matrix(expr_gene_nosex[,grep ("LCL|Fib" , colnames(expr_gene_nosex), invert = T)]), use = "complete"), margins=c(7,3),trace="none",main="Gene Expression Correlation \niPSCs Without X", key=T, keysize=1.5,density.info="none",cexCol=0.9, labRow=NA)
+heatmap.2(cor(as.matrix(expr_gene[,1:24]), use = "complete"), margins=c(7,8),trace="none",main="Gene Expression Correlation", key=T, keysize=1.5,density.info="none",cexCol=0.9)
+heatmap.2(cor(as.matrix(expr_gene_nosex[,grep ("LCL|Fib" , colnames(expr_gene_nosex), invert = T)]), use = "complete"), margins=c(7,8),trace="none",main="Gene Expression Correlation \niPSCs Without X", key=T, keysize=1.5,density.info="none",cexCol=0.9)
 dev.off()
 
 pdf(file = "Xchr_expression.pdf")
@@ -790,6 +790,81 @@ colnames(gene_map) = colnames(goodprobes)
 chr.gene = gene_map[,c(8,1)]
 
 write.table(gene_map, 'OriginGeneCoords.txt', quote=F, sep ='\t', row.names=F)
+
+###### Subset randomly down to three individuals ##########
+#### Re-do DE with subset #######
+ipsc_expr = expr_gene_nosex[,grep ("LCL|Fib" , colnames(expr_gene_nosex), invert = T)]
+Ind1 = ipsc_expr[,grep ("Ind1 L-iPSC" , colnames(ipsc_expr))]
+Ind2 = ipsc_expr[,grep ("Ind2 L-iPSC" , colnames(ipsc_expr))]
+Ind3 = ipsc_expr[,grep ("Ind3 L-iPSC" , colnames(ipsc_expr))]
+Ind4 = ipsc_expr[,grep ("Ind4 L-iPSC" , colnames(ipsc_expr))]
+LCL_expr = expr_gene_nosex[,grep ("LCL" , colnames(expr_gene_nosex))]
+Fib_expr = expr_gene_nosex[,grep ("Fib" , colnames(expr_gene_nosex))]
+Fsubset_expr_ipsc = ipsc_expr[,grep ("F-iPSC" , colnames(ipsc_expr))]
+library(limma)
+labs = c("LCL", "LCL", "LCL", "LCL", "Fib", "Fib", "Fib", "Fib", "OF", "OF", 
+         "OF", "OF", "OL","OL", "OL", "OL")
+design <-(model.matrix(~0+labs))
+colnames(design) <- c("Fib", "LCL", "OF", "OL")
+sig_iPSCDMR = matrix(data = NA, nrow = 200, ncol = 7)
+
+for(i in 1:100){
+  rand_1 = as.matrix(Ind1[,sample(1:3, 1,replace=FALSE)])
+  rand_2 = as.matrix(Ind2[,sample(1:3, 1,replace=FALSE)])
+  rand_3 = as.matrix(Ind3[,sample(1:3, 1,replace=FALSE)])
+  rand_4 = as.matrix(Ind4[,sample(1:3, 1,replace=FALSE)])
+  subset_expr_ipsc = cbind(rand_1, rand_2, rand_3,rand_4)
+  rownames(subset_expr_ipsc) = rownames(Ind1)
+  rm(new_DE)
+  new_DE = cbind(LCL_expr, Fib_expr, Fsubset_expr_ipsc, subset_expr_ipsc)
+  
+  fit  <- lmFit(new_DE, design)
+  fit <- eBayes(fit)
+  
+  cm <- makeContrasts(
+    OLvsOF = OL-OF,
+    OLvsLCL = OL-LCL,
+    OFvsFib = OF-Fib,
+    LCLvsFib = LCL-Fib,
+    levels=design)
+  
+  fit2 <- contrasts.fit(fit, cm)
+  fit2 <-eBayes(fit2)
+  
+  iPSC_DMR <- topTable(fit2, coef=1, adjust="BH", number=Inf, sort.by="p")
+  row.num = i + (i-1)
+  sig_iPSCDMR[row.num,] = as.matrix(rbind(iPSC_DMR[1,]))
+  sig_iPSCDMR[(row.num+1),] = as.matrix(rbind(iPSC_DMR[2,]))
+  rm(fit, cm, fit2, iPSC_DMR, row.num)
+}
+colnames(sig_iPSCDMR) = colnames(LCL_vs_Fibs)
+write.table(sig_iPSCDMR, 'Permuted_DE.txt', sep='\t', quote=F)
+
+###### Venn diagram code ###########
+#Created by Irene Gallego Romero
+library(VennDiagram)
+
+### Make Venn of DE genes at 5% with 16 indiv #######
+probes <- data.frame(rownames(iPSC_DMR))
+names(probes) <- "probes"
+
+make.venn.quad <- function(geneset1, geneset2, geneset3, geneset4, geneset1.label, geneset2.label, geneset3.label, geneset4.label, univ){
+  univ$g1 <- univ$probes %in% geneset1
+  univ$g2 <- univ$probes %in% geneset2
+  univ$g3 <- univ$probes %in% geneset3 
+  univ$g4 <- univ$probes %in% geneset4 
+  #pdf(file=paste(prefix, ".pdf", sep=""), width=7, height=7)
+  venn.placeholder <- draw.quad.venn(length(geneset1),length(geneset2), length(geneset3), length(geneset4), dim(univ[univ$g1 == T & univ$g2 == T , ])[1], dim(univ[univ$g1 == T & univ$g3 == T , ])[1], dim(univ[univ$g1 == T & univ$g4 == T , ])[1], dim(univ[univ$g2 == T & univ$g3 == T , ])[1], dim(univ[univ$g2 == T & univ$g4 == T , ])[1], dim(univ[univ$g3 == T & univ$g4 == T , ])[1], dim(univ[univ$g1 == T & univ$g2 == T & univ$g3 == T , ])[1], dim(univ[univ$g1 == T & univ$g2 == T & univ$g4 == T , ])[1], dim(univ[univ$g1 == T & univ$g3 == T & univ$g4 == T , ])[1], dim(univ[univ$g2 == T & univ$g3 == T & univ$g4 == T , ])[1],  dim(univ[univ$g1 == T & univ$g2 == T & univ$g3 == T & univ$g4 == T , ])[1], c(geneset1.label, geneset2.label, geneset3.label, geneset4.label), fill=c("goldenrod", "plum4", "steelblue3", "darkolivegreen3"), alpha=c(0.5, 0.5, 0.5, 0.5),col=NA, euler.d=T)
+  complement.size <- dim(univ[univ$g1 == F & univ$g2 == F & univ$g3 == F & univ$g4 == F , ])[1]
+  grid.text(paste(complement.size, " not DE in any", sep=""), x=0.2, y=0.08)
+  #dev.off()
+}
+
+dev.off()
+# Make venn of full
+pdf(file = "VennDiagram_DE_FDR5_16indv.pdf")
+make.venn.quad(rownames(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.05 , ]), rownames(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 , ]), rownames(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.05 , ]), rownames(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.05 , ]), paste("DEs iPSC", dim(iPSC_DMR[iPSC_DMR$adj.P.Val < 0.05 , ])[1]), paste("DEs Origins", dim(LCL_vs_Fibs[LCL_vs_Fibs$adj.P.Val < 0.05 , ])[1]), paste("DEs LCLs", dim(LCLs_vs_iPSC.L[LCLs_vs_iPSC.L$adj.P.Val < 0.05 , ])[1]), paste("DEs Fibs", dim(Fibs_vs_iPSC.F[Fibs_vs_iPSC.F$adj.P.Val < 0.05 , ])[1]), probes)
+dev.off()
 
 
 #######################UNUSED#####################################################
@@ -1232,25 +1307,6 @@ plot(hclust(dist(t(PC1_3.residual))), xlab = "hclust/Euclidean distance", main =
 plot(hclust(as.dist(1-cor(as.matrix(PC1_3.residual)))),main = "Dendrogram reg PC1-3", xlab="Pearson")
 plot(hclust(dist(t(PC1_3.residual), method="manhattan")), xlab = "Manhattan", main = "Dendrogram reg PC1-3")
 
-###### Subset randomly down to three individuals ##########
-ipsc_expr = expr_gene[,grep ("LCL|Fib" , colnames(expr_gene), invert = T)]
-S0961 = ipsc_expr[,grep ("S0961" , colnames(ipsc_expr))]
-rand_S0961 = S0961[,sample(1:4, 3,replace=FALSE)]
-
-S1194 = ipsc_expr[,grep ("S1194" , colnames(ipsc_expr))]
-rand_S1194 = S1194[,sample(1:4, 3,replace=FALSE)]
-
-S4280 = ipsc_expr[,grep ("S4280" , colnames(ipsc_expr))]
-rand_4280 = S4280[,sample(1:4, 3,replace=FALSE)]
-
-S8126 = ipsc_expr[,grep ("S8126" , colnames(ipsc_expr))]
-rand_S8126 = S8126[,sample(1:4, 3,replace=FALSE)]
-
-subset_expr_ipsc = cbind(rand_S0961, rand_S1194, rand_4280,rand_S8126)
-
-plot(hclust(dist(t(subset_expr_ipsc))), xlab = "", main = "Dendrogram with subsetted iPSCs")
-plot(hclust(dist(t(expr_gene[,grep ("LCL|Fib|.F" , colnames(expr_gene), invert = T)]))), xlab = "", main = "Dendrogram with no fibro")
-
 ############## Proportion of variance code ######################
 ####### Permute data - check each covariate seperatley
 var.resid.err.p = matrix(ncol = 1, nrow = dim(meth.final)[1])
@@ -1364,4 +1420,13 @@ plot(ind.median, pch = 16, ylim = c(0,1), xaxt= "n", main = "Proportion of Varia
 axis(1, at=1:10, labels = c("< 10%", "< 20%","< 30%","< 40%","< 50%","< 60%","< 70%","< 80%","< 90%","< 100%"), cex.axis = .75)
 points(ori.median, pch = 16, col = "red")
 legend("topright", c("Individual", "Tissue of Origin"), col = c("black", "red"), pch = c(16,16))
+dev.off()
+
+### Make Nick's 1K Probe Dendogram
+library(ClassDiscovery)
+OneKprobes= read.table('1K_most_variable_iPSC_methprobes.txt', as.is=T, header=T)
+pdf(file = "Dendrograms_1K_meth.pdf")
+cols = c("Brown", "Navy", "ForestGreen", "Navy", "Navy", "Navy", "Brown", "darkorange1", "ForestGreen", "darkorange1", "darkorange1", "darkorange1", "Brown", "Black", "ForestGreen", "Black", "Black", "Black", "Brown", "lightcoral", "ForestGreen", "lightcoral", "lightcoral", "lightcoral")
+euc = hclust(dist(t(OneKprobes)))
+plotColoredClusters(euc, colnames(OneKprobes), cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance Methylation", line = -1, xlab="", sub="")
 dev.off()
