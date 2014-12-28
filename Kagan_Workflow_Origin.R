@@ -356,20 +356,42 @@ plot(hclust(as.dist(1-cor(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert
 plot(hclust(as.dist(1-cor(as.matrix(expr_gene_nosex[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)][,1:16])))), xlab = "", main = "Dendrogram with only iPSCs, w/o X chr")
 
 
-###### Create dendograms of autosomes only and 1k most variable ##########
+###### Create dendograms of autosomes only and 1k most variable - only iPSCs ##########
 #Create expr data set of 1k most variable genes 
 variance.iPSC = apply(expr_gene_nosex[,grep ("LCL|Fib", colnames(expr_gene_nosex),invert=T)],1,var)
 varall = cbind(expr_gene_nosex, variance.iPSC)
 varall_1k = varall[order(varall[,25], decreasing = T),]
 var1k = varall_1k[1:1000,-25]
-
+labs = c("Ind1 F-iPSC", 
+         "Ind2 L-iPSC C", "Ind3 L-iPSC B", "Ind4 L-iPSC C", 
+         "Ind2 L-iPSC B", "Ind4 L-iPSC A", "Ind1 L-iPSC A", 
+         "Ind3 F-iPSC",  
+         "Ind2 L-iPSC A", "Ind1 L-iPSC C", 
+         "Ind2 F-iPSC", "Ind3 L-iPSC A", "Ind1 L-iPSC B", "Ind4 L-iPSC B", 
+         "Ind3 L-iPSC C", "Ind4 F-iPSC")
+cols = c("Navy",
+         "darkorange1",
+         "Black",
+         "lightcoral",
+         "darkorange1",
+         "lightcoral",
+         "Navy",
+         "Black",
+         "darkorange1",
+         "Navy",
+         "darkorange1",
+         "Black",
+         "Navy",
+         "lightcoral",
+         "Black",
+         "lightcoral")
 avg_beta = var1k
 pdf(file = "Dendrograms_nosex_1k.pdf")
-euc = hclust(dist(t(avg_beta)))
-plotColoredClusters(euc, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance", line = -1, xlab="", sub="", col.main = "#45ADA8")
+euc = hclust(dist(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)])))
+plotColoredClusters(euc, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance", line = -1, xlab="", sub="")
 #Make dendograms using pearson
 pears = hclust(as.dist(1-cor(as.matrix(avg_beta))))
-plotColoredClusters(pears, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Pearson Correlation", line = -1, xlab="", sub="", col.main = "#45ADA8")
+plotColoredClusters(pears, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Pearson Correlation", line = -1, xlab="", sub="")
 dev.off()
 
 ####### Create dendograms of autosomes only ##################
@@ -793,22 +815,22 @@ write.table(gene_map, 'OriginGeneCoords.txt', quote=F, sep ='\t', row.names=F)
 
 ###### Subset randomly down to three individuals ##########
 #### Re-do DE with subset #######
-ipsc_expr = expr_gene_nosex[,grep ("LCL|Fib" , colnames(expr_gene_nosex), invert = T)]
+ipsc_expr = expr_gene[,grep ("LCL|Fib" , colnames(expr_gene), invert = T)]
 Ind1 = ipsc_expr[,grep ("Ind1 L-iPSC" , colnames(ipsc_expr))]
 Ind2 = ipsc_expr[,grep ("Ind2 L-iPSC" , colnames(ipsc_expr))]
 Ind3 = ipsc_expr[,grep ("Ind3 L-iPSC" , colnames(ipsc_expr))]
 Ind4 = ipsc_expr[,grep ("Ind4 L-iPSC" , colnames(ipsc_expr))]
-LCL_expr = expr_gene_nosex[,grep ("LCL" , colnames(expr_gene_nosex))]
-Fib_expr = expr_gene_nosex[,grep ("Fib" , colnames(expr_gene_nosex))]
+LCL_expr = expr_gene[,grep ("LCL" , colnames(expr_gene))]
+Fib_expr = expr_gene[,grep ("Fib" , colnames(expr_gene))]
 Fsubset_expr_ipsc = ipsc_expr[,grep ("F-iPSC" , colnames(ipsc_expr))]
 library(limma)
-labs = c("LCL", "LCL", "LCL", "LCL", "Fib", "Fib", "Fib", "Fib", "OF", "OF", 
+labs = c("Fib", "Fib", "Fib", "Fib","LCL", "LCL", "LCL", "LCL", "OF", "OF", 
          "OF", "OF", "OL","OL", "OL", "OL")
 design <-(model.matrix(~0+labs))
-colnames(design) <- c("Fib", "LCL", "OF", "OL")
-sig_iPSCDMR = matrix(data = NA, nrow = 200, ncol = 7)
+colnames(design) <- c("LCL","Fib", "OF", "OL")
+sig_iPSCDMR = matrix(data = NA, nrow = 2500, ncol = 7)
 
-for(i in 1:100){
+for(i in 1:500){
   rand_1 = as.matrix(Ind1[,sample(1:3, 1,replace=FALSE)])
   rand_2 = as.matrix(Ind2[,sample(1:3, 1,replace=FALSE)])
   rand_3 = as.matrix(Ind3[,sample(1:3, 1,replace=FALSE)])
@@ -833,11 +855,15 @@ for(i in 1:100){
   
   iPSC_DMR <- topTable(fit2, coef=1, adjust="BH", number=Inf, sort.by="p")
   row.num = i + (i-1)
-  sig_iPSCDMR[row.num,] = as.matrix(rbind(iPSC_DMR[1,]))
-  sig_iPSCDMR[(row.num+1),] = as.matrix(rbind(iPSC_DMR[2,]))
+  sig_iPSCDMR[row.num,2:7] = as.matrix(rbind(iPSC_DMR[1,]))
+  sig_iPSCDMR[row.num,1] = as.character(row.names(iPSC_DMR[1,]))
+  sig_iPSCDMR[(row.num+1),2:7] = as.matrix(rbind(iPSC_DMR[2,]))
+  sig_iPSCDMR[row.num+1,1] = as.character(row.names(iPSC_DMR[2,]))
   rm(fit, cm, fit2, iPSC_DMR, row.num)
 }
-colnames(sig_iPSCDMR) = colnames(LCL_vs_Fibs)
+unique.sig.iPSCs <- unique(sig_iPSCDMR[as.numeric(sig_iPSCDMR[,6]) < .05 , ])
+dim(unique.sig.iPSCs)
+table.unqiue.sig.iPSCs <- table(unique.sig.iPSCs)
 write.table(sig_iPSCDMR, 'Permuted_DE.txt', sep='\t', quote=F)
 
 ###### Venn diagram code ###########
@@ -1426,7 +1452,75 @@ dev.off()
 library(ClassDiscovery)
 OneKprobes= read.table('1K_most_variable_iPSC_methprobes.txt', as.is=T, header=T)
 pdf(file = "Dendrograms_1K_meth.pdf")
-cols = c("Brown", "Navy", "ForestGreen", "Navy", "Navy", "Navy", "Brown", "darkorange1", "ForestGreen", "darkorange1", "darkorange1", "darkorange1", "Brown", "Black", "ForestGreen", "Black", "Black", "Black", "Brown", "lightcoral", "ForestGreen", "lightcoral", "lightcoral", "lightcoral")
+cols = c("Navy", "Navy", "Navy", "Navy", "darkorange1", "darkorange1", "darkorange1", "darkorange1", "Black", "Black", "Black", "Black", "lightcoral", "lightcoral", "lightcoral", "lightcoral")
+labs = c("Ind1 F-iPSC",
+         "Ind1 L-iPSC A",
+         "Ind1 L-iPSC B",
+         "Ind1 L-iPSC C",
+         "Ind2 F-iPSC",
+         "Ind2 L-iPSC A",
+         "Ind2 L-iPSC B",
+         "Ind2 L-iPSC C",
+         "Ind3 F-iPSC",
+         "Ind3 L-iPSC A",
+         "Ind3 L-iPSC B",
+         "Ind3 L-iPSC C",
+         "Ind4 F-iPSC",
+         "Ind4 L-iPSC A",
+         "Ind4 L-iPSC B",
+         "Ind4 L-iPSC C")
+euc = hclust(dist(t(OneKprobes[,grep ("LCL|Fib" , colnames(OneKprobes), invert = T)])))
+
 euc = hclust(dist(t(OneKprobes)))
-plotColoredClusters(euc, colnames(OneKprobes), cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance Methylation", line = -1, xlab="", sub="")
+labs = c("Ind1 Fibroblast",
+         "Ind1 F-iPSC",
+         "Ind1 LCL",
+         "Ind1 L-iPSC A",
+         "Ind1 L-iPSC B",
+         "Ind1 L-iPSC C",
+         "Ind2 Fibroblast",
+         "Ind2 F-iPSC",
+         "Ind2 LCL",
+         "Ind2 L-iPSC A",
+         "Ind2 L-iPSC B",
+         "Ind2 L-iPSC C",
+         "Ind3 Fibroblast",
+         "Ind3 F-iPSC",
+         "Ind3 LCL",
+         "Ind3 L-iPSC A",
+         "Ind3 L-iPSC B",
+         "Ind3 L-iPSC C",
+         "Ind4 Fibroblast",
+         "Ind4 F-iPSC",
+         "Ind4 LCL",
+         "Ind4 L-iPSC A",
+         "Ind4 L-iPSC B",
+         "Ind4 L-iPSC C")
+cols= c("Brown",
+        "Navy",
+        "ForestGreen",
+        "Navy",
+        "Navy",
+        "Navy",
+        "Brown",
+        "darkorange1",
+        "ForestGreen",
+        "darkorange1",
+        "darkorange1",
+        "darkorange1",
+        "Brown",
+        "Black",
+        "ForestGreen",
+        "Black",
+        "Black",
+        "Black",
+        "Brown",
+        "lightcoral",
+        "ForestGreen",
+        "lightcoral",
+        "lightcoral",
+        "lightcoral")
+plotColoredClusters(euc, colnames(OneKprobes[,grep ("LCL|Fib" , colnames(OneKprobes), invert = T)]), cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance Methylation", line = -1, xlab="", sub="")
+plotColoredClusters(euc, labs, cols, cex = 1,lwd = 3, lty = 1,main = "Euclidean Distance Methylation", line = -1, xlab="", sub="")
+
 dev.off()
