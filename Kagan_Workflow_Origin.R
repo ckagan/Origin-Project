@@ -131,6 +131,14 @@ expr_quant.all <- norm_quant.all[detect.ind.all,]
 #expr_quant.all = expr_iPSC_quant.all
 #expr_quant.all is all normalized probes for all 24 samples
 
+## Create GEO data table
+#norm_GEO <- data.frame(data.norm.all@assayData$exprs, data.norm.all@assayData$detection)
+#rownames(norm_GEO)=data.norm.all@featureData[[5]]
+#expr_GEO <- norm_GEO[detect.ind.all,]
+#write.table(expr_GEO, 'GEO_ExprNormData.txt', sep='\t', row.names=T, quote=F)
+
+
+
 ###### Load in Covariates ###############
 #Converted some factors so they are categorical 
 colnames(expr_quant.all) = samplenames$NewName
@@ -423,16 +431,16 @@ dev.off()
 Leg = samplenames$Deriv
 ##All the data
 avg_beta = expr_gene
-x.pca = prcomp(na.omit(avg_beta), scale = T, center = T)
+x.pca = prcomp(na.omit(t(avg_beta)), scale = T, center = T)
 x.pca.sum = summary(x.pca)
 pdf(file = "PCA.pdf")
-plot(x.pca$rotation[,1], x.pca$rotation[,2], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',x.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
-plot(x.pca$rotation[,1], x.pca$rotation[,3], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC3 (',x.pca.sum$importance[2,3], ')', sep = ''), main = "PC1/3 all data", col = Leg, pch = 20); legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
-plot(x.pca$rotation[,1], x.pca$rotation[,4], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC4 (',x.pca.sum$importance[2,4], ')', sep = ''), main = "PC1/4 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+plot(x.pca$x[,1], x.pca$x[,2], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',x.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+plot(x.pca$x[,1], x.pca$x[,3], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC3 (',x.pca.sum$importance[2,3], ')', sep = ''), main = "PC1/3 all data", col = Leg, pch = 20); legend(x = "topright", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
+plot(x.pca$x[,1], x.pca$x[,4], xlab = paste('PC1 (',x.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC4 (',x.pca.sum$importance[2,4], ')', sep = ''), main = "PC1/4 all data", col = Leg, pch = 20); legend(x = "topleft", pch = 20, col = c(1:4), c("LCL origin", "Fib origin", "LCL", "Fib"))
 dev.off()
 
 ### Only iPSCs
-ipsc.pca = prcomp(na.omit(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)]), scale = T, center =T)
+ipsc.pca = prcomp(na.omit(t(avg_beta[,grep ("LCL|Fib" , colnames(avg_beta), invert = T)])), scale = T, center =T)
 ipsc.pca.sum = summary(ipsc.pca)
 #Make sample covar file with only iPSCs
 rem = grep ("LCL|Fib" , samplenames$Name)
@@ -442,9 +450,9 @@ ipsc_only_leg = c("red", "blue", "orange", "black", "blue", "black", "red", "ora
 ipsc_only_shape =  c(21, 20,20,20,20,20,20,21, 20,20,21,20,20,20,20,21)
 
 pdf(file = "PCA iPSC only.pdf")
-plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,2], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape);legend(x = "bottomleft", pch = c(20, 20, 20, 20, 20, 21), col = c("red","blue","black","orange", "black","black"), c("Ind1", "Ind2", "Ind4", "Ind3", "LCL derived", "Fib derived"))
-plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,3], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC1/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "bottomleft", pch = c(20, 20, 20, 20, 20, 21), col = c("red","blue","black","orange", "black","black"), c("Ind1", "Ind2", "Ind4", "Ind3", "LCL derived", "Fib derived"))
-plot(ipsc.pca$rotation[,1], ipsc.pca$rotation[,4], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''), main = "PC1/4 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "bottomleft", pch = c(20, 20, 20, 20, 20, 21), col = c("red","blue","black","orange", "black","black"), c("Ind1", "Ind2", "Ind4", "Ind3", "LCL derived", "Fib derived"))
+plot(ipsc.pca$x[,1], ipsc.pca$x[,2], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC2 (',ipsc.pca.sum$importance[2,2], ')', sep = ''), main = "PC1/2 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape);legend(x = "bottomleft", pch = c(20, 20, 20, 20, 20, 21), col = c("red","blue","black","orange", "black","black"), c("Ind1", "Ind2", "Ind4", "Ind3", "LCL derived", "Fib derived"))
+plot(ipsc.pca$x[,1], ipsc.pca$x[,3], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC3 (',ipsc.pca.sum$importance[2,3], ')', sep = ''), main = "PC1/3 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "topright", pch = c(20, 20, 20, 20, 20, 21), col = c("red","blue","black","orange", "black","black"), c("Ind1", "Ind2", "Ind4", "Ind3", "LCL derived", "Fib derived"))
+plot(ipsc.pca$x[,1], ipsc.pca$x[,4], xlab = paste('PC1 (',ipsc.pca.sum$importance[2,1], ')', sep = ''),ylab = paste('PC4 (',ipsc.pca.sum$importance[2,4], ')', sep = ''), main = "PC1/4 iPSC only", col = ipsc_only_leg, pch = ipsc_only_shape); legend(x = "bottomright", pch = c(20, 20, 20, 20, 20, 21), col = c("red","blue","black","orange", "black","black"), c("Ind1", "Ind2", "Ind4", "Ind3", "LCL derived", "Fib derived"))
 dev.off()
 
 ##### Covariate analysis ###########
@@ -738,7 +746,6 @@ for (i in 1:dim(meth.final)[1]){
   var.origin[i] <- anova(tmp)[2,2]/sum(anova(tmp)[,2])
   var.resid.err[i] <- anova(tmp)[3,2]/sum(anova(tmp)[,2])
 }
-
 p.origin = matrix(ncol = 1, nrow = dim(meth.final)[1])
 p.ind = matrix(ncol = 1, nrow = dim(meth.final)[1])
 
@@ -765,17 +772,33 @@ var.origin.adj = apply(var.origin, 1, function(x) adj.R.sq(x,16,1))
 variation.adj <- cbind(var.ind.adj, var.origin.adj)
 variation.adj.df <- data.frame(var.ind.adj, var.origin.adj)
 colnames(variation.adj.df) <- c("ind", "origin")
+
 variation.adj.df.m <- reshape2::melt(variation.adj.df, id.vars = NULL)
 
+####### Bounded
 variation.df <- data.frame(var.ind, var.origin, var.ind.adj, var.origin.adj)
+variation.df[variation.df[,1] < 0 , 1] <- 0 
+variation.df[variation.df[,2] < 0 , 2] <- 0 
+variation.df[variation.df[,3] < 0 , 3] <- 0 
+variation.df[variation.df[,4] < 0 , 4] <- 0 
 colnames(variation.df) = c("ind", "origin", "ind.adj", "origin.adj")
+
 variation.df.m <- reshape2::melt(variation.df, id.vars = NULL)
+
+variation.adj.df <- data.frame(var.ind.adj, var.origin.adj)
+
+variation.adj.df[variation.adj.df[,1] < 0 , 1] <- 0 
+variation.adj.df[variation.adj.df[,2] < 0 , 2] <- 0 
+
+colnames(variation.adj.df) <- c("ind", "origin")
+variation.adj.df.m <- reshape2::melt(variation.adj.df, id.vars = NULL)
 
 library(ggplot2)
 ###Create violin plots for proportion of variance explained
 pdf(file = "Proportion_of_variance_violin.pdf")
-
-ggplot(variation.df.m, aes(x = variable, y = value) ) + geom_violin(aes(fill = as.factor(variable) ), scale = "width", trim = F ) + geom_boxplot(col = aes(fill = as.factor(variable)), width=.05, outlier.colour = NA) + theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+pdf(file = "Proportion_of_variance_violin_bounded.pdf")
+ggplot(variation.adj.df.m, aes(x = variable, y = value) ) + geom_violin(aes(fill = as.factor(variable) ), scale = "width", trim = T ) + theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+ggplot(variation.df.m, aes(x = variable, y = value) ) + geom_violin(aes(fill = as.factor(variable) ), scale = "width", trim = T ) + theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
 ggplot(variation.adj.df.m, aes(x = variable, y = value) ) + geom_violin(aes(fill = as.factor(variable) ), scale = "width", trim = F ) + geom_boxplot(col = aes(fill = as.factor(variable)), width=.05, outlier.colour = NA) + theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
 
 dev.off()
