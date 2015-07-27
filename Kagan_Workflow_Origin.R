@@ -1457,9 +1457,22 @@ var.test(variance.LCL, variance.iPSC)
 var.test(variance.Fib, variance.iPSC)
 var.test(variance.Fib, variance.LCL)
 
+plot(density(variance.iPSC), col = "Orange", main = "Distribution of Variance between cell types", xlab = "Variance", lwd =2, xlim=c(0,.2),ylim=c(0,90))
+lines(density(variance.Fib), col = "Blue", lwd =2)
+lines(density(variance.LCL), col = "green", lwd =2)
+cells = c("iPSCs", "Fibroblasts", "LCLs")
+legend(.15,83, cells, fill=c("orange", "blue", "green"))
+
+plot(density(variance.LCL), col = "Orange", main = "Distribution of Variance between cell types", xlab = "Variance", lwd =2,ylim=c(0,90))
+lines(density(variance.Fib), col = "Blue", lwd =2)
+lines(density(variance.LCL), col = "green", lwd =2)
+cells = c("iPSCs", "Fibroblasts", "LCLs")
+legend(.15,83, cells, fill=c("orange", "blue", "green"))
+
+
 library(ggplot2)
 var_all <- data.frame(var=c(variance.LCL, variance.Fib, variance.iPSC), type = rep(c("LCL","Fib", "iPSC"), times=c(length(variance.LCL))))
-ggplot(var_all, aes(x=var, fill=type)) + geom_density(alpha=0.09) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
+ggplot(var_all, aes(x=var, fill=type)) + geom_density(alpha=0.09) +xlim(-.01,.02)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
 
 var_LCL <- data.frame(var=c(variance.LCL), type = rep(c("LCL"), times=c(length(variance.LCL))))
 ggplot(var_LCL, aes(x=var, fill=type)) + geom_density(alpha=0.5) +xlim(-.01,.2)+xlab("Variance") + ggtitle("Gene Expression: Total variance") + theme(legend.position=c(.75,.75)) +theme(text = element_text(size=23))
